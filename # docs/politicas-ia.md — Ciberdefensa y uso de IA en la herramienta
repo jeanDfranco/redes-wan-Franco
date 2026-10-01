@@ -1,0 +1,7 @@
+1. La herramienta nunca guarda contraseñas ni tokens en el código; van en .env (protegido por .gitignore).
+2. Con IA pública solo se usan datos de ejemplo, nunca IPs reales, credenciales ni topologías sensibles.
+3. Todo lo que ingresa el usuario se valida y sanea antes de usarse.
+4. La herramienta advierte cuando una configuración es insegura (puertos abiertos, credenciales por defecto) y aplica el mínimo privilegio.
+5. No se ejecuta ningún comando o configuración que no se entienda; lo generado por IA se revisa y se prueba primero.
+6. Toda automatización/acceso a equipos se hace solo en el laboratorio autorizado.
+7. La calidad se mide con pruebas y se reporta el % de confianza (docs/pruebas.md).
