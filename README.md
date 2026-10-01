@@ -29,6 +29,6 @@ Es una plataforma web interactiva de automatización de infraestructura como có
 | Subnetting funciona               | Sí         | 01-subnetting.png    |
 | Carga de topología                | Sí         | 02-topologia.png     |
 | Config Cisco y Huawei             | Sí         | 03 / 04              |
-| Config Fortinet y MikroTik (C3)   | Sí         | 06 / 07              |
+| Config Fortinet y MikroTik (C3)   | No         | 06 / 07              |
 | Ciberdefensa (politicas-ia.md)    | Sí         | 08-ciberdefensa.png  |
-| Pruebas con % de confianza (C3)   | Sí         | docs/pruebas.md      |
+| Pruebas con % de confianza (C3)   | No         | docs/pruebas.md      |
