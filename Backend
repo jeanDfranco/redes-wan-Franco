@@ -1,0 +1,542 @@
+import math
+import ipaddress
+from abc import ABC, abstractmethod
+from typing import List, Optional, Dict, Any
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
+VERSION = "3.0-Enterprise-Architecture"
+
+app = FastAPI(
+    title="WAN Network Design & IaC Engine",
+    version=VERSION,
+    description="Engine Multi-Vendor Abstraído con Validación por Capas, Drivers Específicos y Generación IPsec/OSPF"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ===================================================================
+# 1. MODELOS DE DATOS Y ENTRADA (PAYLOAD)
+# ===================================================================
+
+class VlanItem(BaseModel):
+    vlan_id: int = Field(..., ge=1, le=4094)
+    vlan_name: str
+    is_svi: bool = False
+    svi_ip: Optional[str] = ""
+
+class InterfaceConfig(BaseModel):
+    port_name: str
+    role: str  # "L3 Routed", "Access", "Trunk"
+    ip_cidr: Optional[str] = ""
+    assigned_vlan: Optional[str] = ""
+    portfast: bool = False
+    bpdu_guard: bool = False
+    port_security: bool = False
+
+class OspfConfig(BaseModel):
+    enabled: bool = False
+    process_id: int = 1
+    area: str = "0.0.0.0"
+    router_id: Optional[str] = ""
+
+class NetworkRequest(BaseModel):
+    hostname: str
+    mgmt_ip: str
+    device_type: str  # "Router WAN", "Switch L3", "Switch L2"
+    vendor: str       # "Cisco", "Huawei", "Fortinet", "MikroTik"
+    port_count: int   # 24, 48
+    interface_type: str # "FastEthernet", "GigabitEthernet", "10GigabitEthernet"
+    base_ip_cidr: str   # ej: "10.240.0.0/16"
+    interfaces: List[InterfaceConfig] = []
+    vlans: List[VlanItem] = []
+    ospf: Optional[OspfConfig] = None
+    protocols: List[str] = []
+    enable_vpn: bool = False
+
+# ===================================================================
+# FASE 1 & 2: SANITIZACIÓN Y ABSTRACCIÓN INTERMEDIA (IR)
+# ===================================================================
+
+class NormalizedInterface:
+    def __init__(self, raw: InterfaceConfig):
+        self.port_name = raw.port_name
+        self.role = raw.role
+        self.ip_address = ""
+        self.netmask = ""
+        self.wildcard = ""
+        self.network = ""
+        self.prefix = 0
+        self.assigned_vlan = raw.assigned_vlan
+        self.portfast = False
+        self.bpdu_guard = False
+        self.port_security = False
+
+        # SANITIZACIÓN RIGUROSA L2 VS L3
+        if raw.role == "L3 Routed":
+            # Sanitizar: ignorar flags L2 en puertos L3
+            if raw.ip_cidr and "/" in raw.ip_cidr:
+                try:
+                    iface = ipaddress.ip_interface(raw.ip_cidr)
+                    self.ip_address = str(iface.ip)
+                    self.netmask = str(iface.netmask)
+                    self.wildcard = str(ipaddress.IPv4Address(int(iface.network.hostmask)))
+                    self.network = str(iface.network.network_address)
+                    self.prefix = iface.network.prefixlen
+                except ValueError:
+                    pass
+        else:
+            # En roles Access / Trunk, preservar flags L2 y sanitizar IP
+            self.portfast = raw.portfast
+            self.bpdu_guard = raw.bpdu_guard
+            self.port_security = raw.port_security
+
+class NormalizedNetworkModel:
+    def __init__(self, payload: NetworkRequest):
+        self.hostname = payload.hostname
+        self.mgmt_ip = payload.mgmt_ip
+        self.device_type = payload.device_type
+        self.vendor = payload.vendor
+        self.enable_vpn = payload.enable_vpn and payload.device_type != "Switch L2"
+        self.protocols = payload.protocols
+        self.warnings: List[str] = []
+
+        if payload.enable_vpn and payload.device_type == "Switch L2":
+            self.warnings.append("IPsec VPN fue omitido: No es compatible con Switch Capa 2.")
+
+        # Sanitizar e abstraer Interfaces
+        self.interfaces = [NormalizedInterface(i) for i in payload.interfaces]
+
+        # Sanitizar e abstraer VLANs / SVIs
+        self.vlans = []
+        for v in payload.vlans:
+            svi_ip_clean = ""
+            svi_netmask = ""
+            if v.is_svi and v.svi_ip and "/" in v.svi_ip:
+                try:
+                    svi_iface = ipaddress.ip_interface(v.svi_ip)
+                    svi_ip_clean = str(svi_iface.ip)
+                    svi_netmask = str(svi_iface.netmask)
+                except ValueError:
+                    pass
+            self.vlans.append({
+                "id": v.vlan_id,
+                "name": v.vlan_name,
+                "is_svi": v.is_svi,
+                "svi_ip": svi_ip_clean,
+                "svi_netmask": svi_netmask
+            })
+
+        # Sanitizar e abstraer OSPF
+        self.ospf = None
+        if payload.ospf and payload.ospf.enabled:
+            if payload.device_type == "Switch L2":
+                self.warnings.append("OSPF fue omitido: No es compatible con Switch Capa 2.")
+            else:
+                self.ospf = {
+                    "process_id": payload.ospf.process_id,
+                    "area": payload.ospf.area,
+                    "router_id": payload.ospf.router_id or payload.mgmt_ip
+                }
+
+# ===================================================================
+# FASE 3: STRATEGY PATTERN - DRIVERS MULTI-VENDOR
+# ===================================================================
+
+class BaseVendorDriver(ABC):
+    @abstractmethod
+    def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]: pass
+    
+    @abstractmethod
+    def generate_vlans(self, model: NormalizedNetworkModel) -> List[str]: pass
+
+    @abstractmethod
+    def generate_interfaces(self, model: NormalizedNetworkModel) -> List[str]: pass
+
+    @abstractmethod
+    def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]: pass
+
+    @abstractmethod
+    def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]: pass
+
+
+class CiscoDriver(BaseVendorDriver):
+    def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = [
+            f"hostname {model.hostname}",
+            "ip domain-name empresa.local",
+            "crypto key generate rsa modulus 2048",
+            "ip ssh version 2",
+            "no ip http server\nno ip http secure-server",
+            "service password-encryption",
+            "banner motd ^C\\n ACCESO RESTRINGIDO - MONITOREADO POR SOC\\n^C"
+        ]
+        if "Disable Discovery" in model.protocols:
+            cli.append("no cdp run\nno lldp run")
+        return cli
+
+    def generate_vlans(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for v in model.vlans:
+            cli.append(f"vlan {v['id']}\n name {v['name']}")
+            if v["is_svi"] and v["svi_ip"]:
+                cli.append(f"interface Vlan{v['id']}\n description SVI_{v['name']}")
+                cli.append(f" ip address {v['svi_ip']} {v['svi_netmask']}\n no shutdown")
+        return cli
+
+    def generate_interfaces(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for iface in model.interfaces:
+            cli.append(f"interface {iface.port_name}")
+            if iface.role == "L3 Routed":
+                cli.append(" no switchport")
+                if iface.ip_address:
+                    cli.append(f" ip address {iface.ip_address} {iface.netmask}")
+            elif iface.role == "Access":
+                cli.append(" switchport mode access")
+                if iface.assigned_vlan:
+                    cli.append(f" switchport access vlan {iface.assigned_vlan}")
+                if iface.portfast:
+                    cli.append(" spanning-tree portfast")
+                if iface.bpdu_guard:
+                    cli.append(" spanning-tree bpduguard enable")
+            elif iface.role == "Trunk":
+                cli.append(" switchport mode trunk")
+                if iface.assigned_vlan:
+                    cli.append(f" switchport trunk allowed vlan {iface.assigned_vlan}")
+            cli.append(" no shutdown")
+        return cli
+
+    def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.ospf: return []
+        cli = [f"router ospf {model.ospf['process_id']}", f" router-id {model.ospf['router_id']}"]
+        for iface in model.interfaces:
+            if iface.role == "L3 Routed" and iface.network:
+                cli.append(f" network {iface.network} {iface.wildcard} area {model.ospf['area']}")
+        return cli
+
+    def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.enable_vpn: return []
+        return [
+            "crypto ikev2 policy WAN-IKE-POLICY\n proposal aes-cbc-256 sha256 group 14",
+            "crypto ikev2 keyring WAN-KEYS\n peer REMOTE-PEER\n  address 203.0.113.2\n  pre-shared-key PskS3cur32026!",
+            "crypto ikev2 profile WAN-IKE-PROFILE\n match identity remote address 203.0.113.2\n authentication remote pre-share\n authentication local pre-share\n keyring local WAN-KEYS",
+            "crypto ipsec transform-set WAN-TS esp-256-sha256-hmac mode tunnel",
+            "crypto ipsec profile WAN-IPSEC-PROFILE\n set transform-set WAN-TS\n set ikev2 profile WAN-IKE-PROFILE",
+            "interface Tunnel100\n description WAN_IPSEC_TUNNEL\n ip unnumbered GigabitEthernet0/0/0\n tunnel source GigabitEthernet0/0/0\n tunnel mode ipsec ipv4\n tunnel destination 203.0.113.2\n tunnel protection ipsec profile WAN-IPSEC-PROFILE\n no shutdown"
+        ]
+
+
+class HuaweiDriver(BaseVendorDriver):
+    def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = [
+            f"sysname {model.hostname}",
+            "undo http server enable",
+            "stelnet server enable",
+            "aaa\n local-user admin password irreversible-cipher H3u@we1_S3cur3!\n local-user admin service-type ssh\n local-user admin privilege level 15\n q"
+        ]
+        if "Disable Discovery" in model.protocols:
+            cli.append("undo lldp enable")
+        return cli
+
+    def generate_vlans(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for v in model.vlans:
+            cli.append(f"vlan {v['id']}\n description {v['name']}\n q")
+            if v["is_svi"] and v["svi_ip"]:
+                cli.append(f"interface Vlanif{v['id']}\n ip address {v['svi_ip']} {v['svi_netmask']}\n q")
+        return cli
+
+    def generate_interfaces(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for iface in model.interfaces:
+            cli.append(f"interface {iface.port_name}")
+            if iface.role == "L3 Routed":
+                cli.append(" undo portswitch")
+                if iface.ip_address:
+                    cli.append(f" ip address {iface.ip_address} {iface.netmask}")
+            elif iface.role == "Access":
+                cli.append(" port link-type access")
+                if iface.assigned_vlan:
+                    cli.append(f" port default vlan {iface.assigned_vlan}")
+            elif iface.role == "Trunk":
+                cli.append(" port link-type trunk")
+                if iface.assigned_vlan:
+                    cli.append(f" port trunk allow-pass vlan {iface.assigned_vlan}")
+            cli.append(" q")
+        return cli
+
+    def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.ospf: return []
+        cli = [f"ospf {model.ospf['process_id']} router-id {model.ospf['router_id']}", f" area {model.ospf['area']}"]
+        for iface in model.interfaces:
+            if iface.role == "L3 Routed" and iface.network:
+                cli.append(f"  network {iface.network} {iface.wildcard}")
+        cli.append(" q\n q")
+        return cli
+
+    def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.enable_vpn: return []
+        return [
+            "ipsec proposal PROPOSAL-1\n esp encryption-algorithm aes-256\n esp authentication-algorithm sha256\n q",
+            "ike proposal 1\n encryption-algorithm aes-256\n dh group14\n q",
+            "ike peer PEER-1 v1\n ike-proposal 1\n pre-shared-key cipher PskS3cur32026!\n remote-address 203.0.113.2\n q",
+            "ipsec policy POLICY-1 10 isakmp\n ike-peer PEER-1\n proposal PROPOSAL-1\n q"
+        ]
+
+
+class FortinetDriver(BaseVendorDriver):
+    def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]:
+        return [
+            "config system global",
+            f'    set hostname "{model.hostname}"',
+            "    set admin-ssh-port 22",
+            "    set pre-login-banner enable",
+            "end"
+        ]
+
+    def generate_vlans(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for v in model.vlans:
+            cli.extend([
+                "config system interface",
+                f"    edit 'vlan{v['id']}'",
+                "        set vdom 'root'",
+                f"        set vlanid {v['id']}",
+                "        set interface 'internal'",
+                f"        set ip {v['svi_ip']} {v['svi_netmask']}" if v["is_svi"] and v["svi_ip"] else "",
+                "    next",
+                "end"
+            ])
+        return [line for line in cli if line]
+
+    def generate_interfaces(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = ["config system interface"]
+        for iface in model.interfaces:
+            cli.append(f"    edit '{iface.port_name}'")
+            if iface.role == "L3 Routed" and iface.ip_address:
+                cli.append(f"        set ip {iface.ip_address} {iface.netmask}")
+            cli.append("    next")
+        cli.append("end")
+        return cli
+
+    def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.ospf: return []
+        cli = ["config router ospf", f"    set router-id {model.ospf['router_id']}", "    config area"]
+        cli.append(f"        edit {model.ospf['area']}\n        next\n    end", )
+        cli.append("    config network")
+        idx = 1
+        for iface in model.interfaces:
+            if iface.role == "L3 Routed" and iface.network:
+                cli.append(f"        edit {idx}\n            set prefix {iface.network}/{iface.prefix}\n            set area {model.ospf['area']}\n        next")
+                idx += 1
+        cli.append("    end\nend")
+        return cli
+
+    def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.enable_vpn: return []
+        return [
+            "config vpn ipsec phase1-interface",
+            "    edit 'IPSEC-WAN'",
+            "        set interface 'wan1'",
+            "        set peertype any",
+            "        set net-device disable",
+            "        set proposal aes256-sha256",
+            "        set remote-gw 203.0.113.2",
+            "        set psksecret PskS3cur32026!",
+            "    next\nend",
+            "config vpn ipsec phase2-interface",
+            "    edit 'IPSEC-WAN-P2'",
+            "        set phase1name 'IPSEC-WAN'",
+            "        set proposal aes256-sha256",
+            "    next\nend"
+        ]
+
+
+class MikroTikDriver(BaseVendorDriver):
+    def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = [
+            f"/system identity set name={model.hostname}",
+            "/ip service set telnet disabled=yes ftp disabled=yes www disabled=yes api disabled=yes"
+        ]
+        if "Disable Discovery" in model.protocols:
+            cli.append("/ip neighbor discovery-settings set discover-interface-list=none")
+        return cli
+
+    def generate_vlans(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for v in model.vlans:
+            cli.append(f"/interface vlan add name=VLAN_{v['id']} vlan-id={v['id']} interface=ether1")
+            if v["is_svi"] and v["svi_ip"]:
+                cli.append(f"/ip address add address={v['svi_ip']}/{v['svi_netmask']} interface=VLAN_{v['id']}")
+        return cli
+
+    def generate_interfaces(self, model: NormalizedNetworkModel) -> List[str]:
+        cli = []
+        for iface in model.interfaces:
+            if iface.role == "L3 Routed" and iface.ip_address:
+                cli.append(f"/ip address add address={iface.ip_address}/{iface.prefix} interface={iface.port_name}")
+        return cli
+
+    def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.ospf: return []
+        cli = [
+            f"/routing ospf instance add name=default-instance router-id={model.ospf['router_id']}",
+            f"/routing ospf area add name=area-{model.ospf['area']} area-id={model.ospf['area']} instance=default-instance"
+        ]
+        for iface in model.interfaces:
+            if iface.role == "L3 Routed" and iface.network:
+                cli.append(f"/routing ospf network add network={iface.network}/{iface.prefix} area=area-{model.ospf['area']}")
+        return cli
+
+    def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
+        if not model.enable_vpn: return []
+        return [
+            "/ip ipsec proposal add name=VPN-PROP auth-algorithms=sha256 enc-algorithms=aes-256-cbc",
+            "/ip ipsec peer add name=PEER-WAN address=203.0.113.2 exchange-mode=ike2 profile=default",
+            "/ip ipsec identity add peer=PEER-WAN secret=PskS3cur32026!",
+            "/ip ipsec policy add peer=PEER-WAN proposal=VPN-PROP src-address=0.0.0.0/0 dst-address=0.0.0.0/0 tunnel=yes"
+        ]
+
+# ===================================================================
+# FACTORY PATTERN DE DRIVERS
+# ===================================================================
+
+class DriverFactory:
+    _drivers = {
+        "Cisco": CiscoDriver(),
+        "Huawei": HuaweiDriver(),
+        "Fortinet": FortinetDriver(),
+        "MikroTik": MikroTikDriver()
+    }
+
+    @classmethod
+    def get_driver(cls, vendor: str) -> BaseVendorDriver:
+        driver = cls._drivers.get(vendor)
+        if not driver:
+            raise HTTPException(status_code=400, detail=f"Fabricante '{vendor}' no soportado por el motor.")
+        return driver
+
+# ===================================================================
+# MOTOR DE CÁLCULO DE PRESUPUESTO (BOM) & IP PLANNING
+# ===================================================================
+
+def perform_ip_planning(base_cidr: str, vlans: List[VlanItem]):
+    try:
+        network = ipaddress.ip_network(base_cidr, strict=False)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"CIDR Base Inválido: {str(e)}")
+
+    planning_results = []
+    num_vlans = max(len(vlans), 1)
+    bits_to_add = math.ceil(math.log2(num_vlans)) if num_vlans > 1 else 0
+    new_prefix = network.prefixlen + bits_to_add
+
+    if new_prefix > 30:
+        raise HTTPException(status_code=400, detail="El prefijo base no permite asignar tantas subredes.")
+
+    subnets = list(network.subnets(new_prefix=new_prefix))
+
+    for idx, vlan in enumerate(vlans):
+        sub = subnets[idx] if idx < len(subnets) else subnets[-1]
+        hosts = list(sub.hosts())
+        
+        planning_results.append({
+            "vlan_id": vlan.vlan_id,
+            "vlan_name": vlan.vlan_name,
+            "network_ip_cidr": f"{sub.network_address}/{sub.prefixlen}",
+            "netmask": str(sub.netmask),
+            "wildcard": str(ipaddress.IPv4Address(int(sub.hostmask))),
+            "gateway": str(hosts[0]) if hosts else "N/A",
+            "dhcp_range": f"{hosts[1]} - {hosts[-1]}" if len(hosts) > 1 else "N/A",
+            "broadcast": str(sub.broadcast_address)
+        })
+    return planning_results
+
+def calculate_bom(vendor: str, device_type: str, port_count: int, enable_vpn: bool, interfaces: List[InterfaceConfig]):
+    costs = {"Cisco": 2500, "Huawei": 1500, "Fortinet": 2200, "MikroTik": 450}
+    base_cost = costs.get(vendor, 1000)
+    port_cost = port_count * 18.5
+    active_ports = len([i for i in interfaces if i.role in ["L3 Routed", "Trunk"]])
+    sfp_cost = active_ports * 65.0
+    licensing_cost = 450.0 if enable_vpn else 0.0
+
+    return {
+        "items": [
+            {"description": f"Chasis Base {vendor} ({device_type})", "cost_usd": float(base_cost)},
+            {"description": f"Densidad de Puertos ({port_count} Puertos)", "cost_usd": port_cost},
+            {"description": f"Transceivers SFP/SFP+ ({active_ports} Interfaces Activas)", "cost_usd": sfp_cost},
+            {"description": "Licenciamiento de Ciberdefensa / IPsec", "cost_usd": licensing_cost}
+        ],
+        "total_estimated_usd": base_cost + port_cost + sfp_cost + licensing_cost
+    }
+
+# ===================================================================
+# ENDPOINT PRINCIPAL REFACTORIZADO
+# ===================================================================
+
+@app.post("/api/generate-config")
+async def generate_configuration(payload: NetworkRequest):
+    # 1. Fase de Sanitización y Modelo Intermedio
+    model = NormalizedNetworkModel(payload)
+    
+    # 2. Selección de Driver de Fabricante
+    driver = DriverFactory.get_driver(model.vendor)
+
+    # 3. Pipeline de Renderizado Multi-Vendor
+    cli_blocks = [
+        f"! ===========================================================",
+        f"! DISPOSITIVO: {model.hostname} | FABRICANTE: {model.vendor.upper()}",
+        f"! TIPO: {model.device_type} | IP GESTION: {model.mgmt_ip}",
+        f"! ENGINE VERSION: {VERSION}",
+        f"! ===========================================================\n"
+    ]
+
+    if model.warnings:
+        cli_blocks.append("! --- ADVERTENCIAS Y SANITIZACIONES APLICADAS ---")
+        for w in model.warnings:
+            cli_blocks.append(f"! WARNING: {w}")
+        cli_blocks.append("! -----------------------------------------------\n")
+
+    cli_blocks.append("! --- HARDENING BÁSICO & CIBERDEFENSA ---")
+    cli_blocks.extend(driver.generate_hardening(model))
+
+    if model.vlans:
+        cli_blocks.append("\n! --- SEGMENTACIÓN DE VLANS Y SVIs ---")
+        cli_blocks.extend(driver.generate_vlans(model))
+
+    if model.interfaces:
+        cli_blocks.append("\n! --- CONFIGURACIÓN DE INTERFACES ---")
+        cli_blocks.extend(driver.generate_interfaces(model))
+
+    if model.ospf:
+        cli_blocks.append("\n! --- PROTOCOLO DE ENRUTAMIENTO OSPF ---")
+        cli_blocks.extend(driver.generate_ospf(model))
+
+    if model.enable_vpn:
+        cli_blocks.append("\n! --- TÚNEL IPSEC VPN & SEGURIDAD WAN ---")
+        cli_blocks.extend(driver.generate_vpn(model))
+
+    # 4. IP Planning y BOM
+    ip_planning_data = perform_ip_planning(payload.base_ip_cidr, payload.vlans)
+    bom_data = calculate_bom(payload.vendor, payload.device_type, payload.port_count, payload.enable_vpn, payload.interfaces)
+
+    return {
+        "version": VERSION,
+        "hostname": model.hostname,
+        "warnings": model.warnings,
+        "ip_planning": ip_planning_data,
+        "cli_script": "\n".join(cli_blocks),
+        "bill_of_materials": bom_data
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
