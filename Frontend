@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engine de Redes WAN & Ciberdefensa - v2.2 Enterprise</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --success: #22c55e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 20px;
+        }
+
+        .version-tag { background-color: #0369a1; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; }
+
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .tab-btn {
+            padding: 10px 20px; background-color: var(--panel-bg); border: 1px solid var(--border);
+            border-bottom: none; color: var(--text-muted); font-weight: bold; cursor: pointer; border-radius: 6px 6px 0 0;
+        }
+        .tab-btn.active { background-color: var(--accent); color: #000; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        .card { background-color: var(--panel-bg); border-radius: 8px; padding: 20px; border: 1px solid var(--border); }
+        h2 { margin-top: 0; color: var(--accent); font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px; }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 8px 12px; border-radius: 4px; border: 1px solid var(--border);
+            background-color: #0f172a; color: var(--text-main); box-sizing: border-box;
+        }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+
+        .checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+        .checkbox-item { display: flex; align-items: center; font-size: 0.85rem; gap: 5px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; font-size: 0.82rem; }
+        th { background-color: #0f172a; }
+
+        .btn { background-color: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 15px; }
+        .btn:hover { background-color: var(--accent-hover); color: #fff; }
+        .btn-action { width: auto; padding: 6px 12px; font-size: 0.8rem; margin-top: 0; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-success { background-color: var(--success); color: #000; }
+        .btn-danger { background-color: var(--danger); color: #fff; padding: 4px 8px; }
+
+        .cli-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 5px; }
+        pre { background-color: #090d16; padding: 12px; border-radius: 4px; border: 1px solid var(--border); overflow-x: auto; font-family: 'Courier New', Courier, monospace; font-size: 0.8rem; color: #4ade80; max-height: 380px; white-space: pre-wrap; }
+
+        .hidden { display: none !important; }
+        #topology-canvas { width: 100%; height: 320px; background-color: #0f172a; border: 1px dashed var(--border); border-radius: 4px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-body { background-color: var(--panel-bg); border: 1px solid var(--border); border-radius: 8px; padding: 25px; width: 420px; }
+        .sub-panel { background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid var(--border); margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>WAN Network Design & IaC Engine</h1>
+        <span class="version-tag">Versión: 2.2 Enterprise</span>
+    </header>
+
+    <!-- NAVEGACIÓN -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('config-tab')">1. Configuración Individual de Equipo</button>
+        <button class="tab-btn" onclick="switchTab('topology-tab')">2. Topología de Red e Interconexiones</button>
+    </div>
+
+    <!-- SECCIÓN 1: CONFIGURACIÓN INDIVIDUAL -->
+    <div id="config-tab" class="tab-content active">
+        <div class="card">
+            <h2>1. Parámetros Globales del Dispositivo</h2>
+            <form id="iac-form">
+                
+                <!-- PARÁMETROS GLOBALES (SUPERRED PRIMERO) -->
+                <div class="form-group sub-panel">
+                    <label><strong>Superred / Base CIDR Direccionamiento Global</strong></label>
+                    <input type="text" id="base_ip_cidr" value="10.240.0.0/16" required placeholder="ej: 10.240.0.0/16">
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Hostname</label>
+                        <input type="text" id="hostname" value="RTR-CORE-01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>IP Gestión (Management)</label>
+                        <input type="text" id="mgmt_ip" value="10.240.0.1" required>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Tipo de Dispositivo</label>
+                        <select id="device_type" onchange="handleDeviceTypeChange()">
+                            <option value="Router WAN" selected>Router WAN (L3)</option>
+                            <option value="Switch L3">Switch Capa 3</option>
+                            <option value="Switch L2">Switch Capa 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fabricante Target</label>
+                        <select id="vendor">
+                            <option value="Cisco">Cisco IOS-XE</option>
+                            <option value="Huawei">Huawei VRP</option>
+                            <option value="Fortinet">Fortinet FortiOS</option>
+                            <option value="MikroTik">MikroTik RouterOS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Densidad de Puertos</label>
+                        <select id="port_count" onchange="updateInterfaceOptions()">
+                            <option value="24">24 Puertos</option>
+                            <option value="48">48 Puertos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo Interfaces</label>
+                        <select id="interface_type" onchange="updateInterfaceOptions()">
+                            <option value="GigabitEthernet">GigabitEthernet</option>
+                            <option value="10GigabitEthernet">10GigabitEthernet</option>
+                            <option value="FastEthernet">FastEthernet</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- VLANS Y SVIs -->
+                <div class="form-group">
+                    <label>VLANs y Configuración de Interfaz Virtual SVI</label>
+                    <table id="vlan-table">
+                        <thead>
+                            <tr>
+                                <th>VLAN ID</th>
+                                <th>Nombre</th>
+                                <th>¿Requiere SVI?</th>
+                                <th>IP SVI / CIDR</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><input type="number" value="10" class="v-id" onchange="refreshVlanDropdowns()"></td>
+                                <td><input type="text" value="CORP_WAN" class="v-name" onchange="refreshVlanDropdowns()"></td>
+                                <td style="text-align:center;"><input type="checkbox" class="v-svi-cb" onchange="toggleSviInput(this)"></td>
+                                <td><input type="text" value="10.240.10.1/24" class="v-svi-ip" disabled></td>
+                                <td><button type="button" class="btn-danger" onclick="removeVlanRow(this)">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn" style="background:#334155; color:#fff; padding:5px; margin-top:5px;" onclick="addVlanRow()">+ Añadir VLAN</button>
+                </div>
+
+                <!-- ASIGNACIÓN DE INTERFACED Y DIRECCIONAMIENTO IP -->
+                <div class="form-group">
+                    <label>Asignación de Interfaces y Direccionamiento IP</label>
+                    <table id="interfaces-table">
+                        <thead>
+                            <tr>
+                                <th>Puerto</th>
+                                <th>Rol / Modo</th>
+                                <th>Configuración IP / VLAN</th>
+                                <th>Seguridad L2</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><select class="if-name"></select></td>
+                                <td>
+                                    <select class="if-mode" onchange="handleIfRoleChange(this)">
+                                        <option value="L3 Routed">L3 Routed</option>
+                                        <option value="Access">Access (L2)</option>
+                                        <option value="Trunk">Trunk (L2)</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" value="10.240.1.1/30" class="if-ip-field">
+                                    <select class="if-vlan-field hidden"></select>
+                                </td>
+                                <td>
+                                    <div class="checkbox-group" style="grid-template-columns:1fr 1fr;">
+                                        <label style="font-size:0.75rem;"><input type="checkbox" class="if-pf"> PortFast</label>
+                                        <label style="font-size:0.75rem;"><input type="checkbox" class="if-bpdu"> BPDUGuard</label>
+                                    </div>
+                                </td>
+                                <td><button type="button" class="btn-danger" onclick="removeRow(this)">X</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn" style="background:#334155; color:#fff; padding:5px; margin-top:5px;" onclick="addInterfaceRow()">+ Agregar Interfaz</button>
+                </div>
+
+                <!-- OSPF Y POLÍTICAS -->
+                <div class="form-group">
+                    <label>Políticas de Seguridad y Enrutamiento</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item l3-only">
+                            <input type="checkbox" id="ospf-toggle" class="proto-cb" onchange="toggleOspfPanel(this)"> OSPF
+                        </div>
+                        <div class="checkbox-item l2-only"><input type="checkbox" value="DHCP Snooping" class="proto-cb" checked> DHCP Snooping</div>
+                        <div class="checkbox-item l2-only"><input type="checkbox" value="DAI" class="proto-cb" checked> Dynamic ARP Insp.</div>
+                        <div class="checkbox-item"><input type="checkbox" value="Disable Discovery" class="proto-cb" checked> Deshabilitar CDP/LLDP</div>
+                    </div>
+                </div>
+
+                <!-- SUBPANEL OSPF -->
+                <div id="ospf-panel" class="sub-panel hidden">
+                    <label><strong>Parámetros OSPF</strong></label>
+                    <div class="grid-3">
+                        <div>
+                            <label>Process ID</label>
+                            <input type="number" id="ospf-pid" value="1">
+                        </div>
+                        <div>
+                            <label>Area</label>
+                            <input type="text" id="ospf-area" value="0.0.0.0">
+                        </div>
+                        <div>
+                            <label>Router ID</label>
+                            <input type="text" id="ospf-rid" value="10.240.0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group l3-only" id="vpn-wrapper" style="margin-top:15px;">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="enable_vpn" checked> <strong>Habilitar IPsec VPN (Ciberdefensa WAN)</strong>
+                    </div>
+                </div>
+
+                <button type="button" class="btn" onclick="processEngine()">Generar Script CLI & Plan IP</button>
+            </form>
+        </div>
+
+        <!-- PANEL DE SALIDA -->
+        <div class="card">
+            <h2>Resultados e IaC Output</h2>
+            
+            <label>IP Planning Calculado (VLSM):</label>
+            <div style="overflow-x:auto;">
+                <table id="output-ip-table">
+                    <thead>
+                        <tr>
+                            <th>VLAN ID</th>
+                            <th>Nombre</th>
+                            <th>Subred (CIDR)</th>
+                            <th>Máscara Decimal</th>
+                            <th>Wildcard</th>
+                            <th>Gateway (SVI)</th>
+                            <th>Rango Asignable</th>
+                            <th>Broadcast</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="8" style="text-align:center;">Pendiente de generación...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PRESUPUESTO DESGLOSADO -->
+            <label style="margin-top:15px; display:block;">Presupuesto y Licenciamiento Estimado (BOM):</label>
+            <div id="bom-output" class="sub-panel" style="font-size:0.85rem; color:var(--text-main);">
+                Pendiente de generación...
+            </div>
+
+            <div class="cli-header">
+                <label style="margin:0;">Script CLI de Configuración:</label>
+                <div>
+                    <button type="button" class="btn btn-action btn-success" id="btn-copy" onclick="copyCliToClipboard()" disabled>Copiar</button>
+                    <button type="button" class="btn btn-action" id="btn-download" onclick="downloadCliFile()" disabled style="background:#334155; color:#fff;">Descargar .txt</button>
+                </div>
+            </div>
+            <pre id="cli-output">! Configure los parámetros y presione "Generar Script CLI & Plan IP"...</pre>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 2: TOPOLOGÍA DE RED -->
+    <div id="topology-tab" class="tab-content">
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>Topología de Equipos e Interconexiones Físicas</h2>
+            
+            <div class="grid-2" style="margin-bottom: 15px;">
+                <div>
+                    <label>Gestión de Archivos JSON:</label>
+                    <div style="display:flex; gap:10px;">
+                        <input type="file" id="topology-file" accept=".json" onchange="loadTopologyFromFile(event)">
+                        <button type="button" class="btn btn-action btn-success" onclick="exportTopologyJSON()">Guardar/Exportar JSON</button>
+                    </div>
+                </div>
+                <div>
+                    <label>Acciones de Topología:</label>
+                    <button type="button" class="btn btn-action" style="background:#38bdf8; color:#000;" onclick="openAddDeviceModal()">+ Agregar Dispositivo</button>
+                    <button type="button" class="btn btn-action btn-danger" onclick="clearTopology()">Limpiar Canvas</button>
+                </div>
+            </div>
+
+            <div id="topology-canvas">
+                <svg id="topo-svg" width="100%" height="100%">
+                    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8">Agregue dispositivos o cargue un JSON para visualizar el diagrama</text>
+                </svg>
+            </div>
+
+            <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+                <h2>Enlazar Dispositivos (Límite Máximo de Puertos)</h2>
+                <div class="grid-4" style="align-items:end;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Dispositivo Origen</label>
+                        <select id="link-src-node" onchange="updatePortSelectors()"></select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Puerto Origen</label>
+                        <select id="link-src-port"></select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Dispositivo Destino</label>
+                        <select id="link-dst-node" onchange="updatePortSelectors()"></select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Puerto Destino</label>
+                        <select id="link-dst-port"></select>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success" style="margin-top:10px;" onclick="createDeviceLink()">Establecer Enlace Punto a Punto</button>
+            </div>
+
+            <div style="margin-top:20px;">
+                <label>Resumen de Equipos y Capacidad de Puertos:</label>
+                <table id="nodes-summary-table">
+                    <thead>
+                        <tr>
+                            <th>ID / Hostname</th>
+                            <th>Tipo de Equipo</th>
+                            <th>Capacidad Total</th>
+                            <th>Puertos Ocupados</th>
+                            <th>Puertos Disponibles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5" style="text-align:center;">Sin nodos configurados.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="margin-top:20px;">
+                <label>Enlaces Configurados:</label>
+                <table id="links-summary-table">
+                    <thead>
+                        <tr>
+                            <th>Origen (Puerto)</th>
+                            <th>Destino (Puerto)</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="3" style="text-align:center;">Sin enlaces activos.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA AGREGAR DISPOSITIVO -->
+<div id="device-modal" class="modal-overlay hidden">
+    <div class="modal-body">
+        <h2 style="margin-bottom:15px;">Agregar Nuevo Dispositivo</h2>
+        <div class="form-group">
+            <label>Nombre del Dispositivo (Hostname)</label>
+            <input type="text" id="modal-dev-name" value="SW-ACCESO-01">
+        </div>
+        <div class="form-group">
+            <label>Tipo de Dispositivo</label>
+            <select id="modal-dev-type">
+                <option value="Switch L2">Switch Capa 2</option>
+                <option value="Switch L3">Switch Capa 3</option>
+                <option value="Router WAN">Router WAN</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Densidad de Puertos</label>
+            <select id="modal-dev-ports">
+                <option value="24">24 Puertos</option>
+                <option value="48">48 Puertos</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button type="button" class="btn btn-success" style="margin:0;" onclick="confirmAddDevice()">Agregar</button>
+            <button type="button" class="btn btn-danger" style="margin:0;" onclick="closeAddDeviceModal()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeTopology = {
+        nodes: [
+            { id: "RTR-01", name: "RTR-CORE-01", type: "Router WAN", maxPorts: 24, x: 150, y: 150 },
+            { id: "SW-01", name: "SW-ACCESS-01", type: "Switch L2", maxPorts: 24, x: 450, y: 150 }
+        ],
+        links: [
+            { id: "LINK-1", source: "RTR-01", srcPort: "Gi0/1", target: "SW-01", dstPort: "Gi0/24" }
+        ]
+    };
+
+    window.onload = function() {
+        updateInterfaceOptions();
+        handleDeviceTypeChange();
+        refreshVlanDropdowns();
+        renderTopology();
+    };
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function handleDeviceTypeChange() {
+        const devType = document.getElementById('device_type').value;
+        const l3Elements = document.querySelectorAll('.l3-only');
+        const l2Elements = document.querySelectorAll('.l2-only');
+
+        if (devType === 'Switch L2') {
+            l3Elements.forEach(el => el.classList.add('hidden'));
+            l2Elements.forEach(el => el.classList.remove('hidden'));
+            document.getElementById('enable_vpn').checked = false;
+        } else {
+            l3Elements.forEach(el => el.classList.remove('hidden'));
+            if (devType === 'Router WAN') l2Elements.forEach(el => el.classList.add('hidden'));
+            else l2Elements.forEach(el => el.classList.remove('hidden'));
+        }
+    }
+
+    function toggleSviInput(checkbox) {
+        const row = checkbox.closest('tr');
+        const sviIpInput = row.querySelector('.v-svi-ip');
+        sviIpInput.disabled = !checkbox.checked;
+    }
+
+    function toggleOspfPanel(checkbox) {
+        const panel = document.getElementById('ospf-panel');
+        if (checkbox.checked) panel.classList.remove('hidden');
+        else panel.classList.add('hidden');
+    }
+
+    function handleIfRoleChange(select) {
+        const row = select.closest('tr');
+        const ipInput = row.querySelector('.if-ip-field');
+        const vlanSelect = row.querySelector('.if-vlan-field');
+
+        if (select.value === 'L3 Routed') {
+            ipInput.classList.remove('hidden');
+            vlanSelect.classList.add('hidden');
+        } else {
+            ipInput.classList.add('hidden');
+            vlanSelect.classList.remove('hidden');
+        }
+    }
+
+    function refreshVlanDropdowns() {
+        const vlans = [];
+        document.querySelectorAll('#vlan-table tbody tr').forEach(row => {
+            const id = row.querySelector('.v-id').value;
+            const name = row.querySelector('.v-name').value;
+            if (id) vlans.push({ id, name });
+        });
+
+        document.querySelectorAll('.if-vlan-field').forEach(select => {
+            const curVal = select.value;
+            select.innerHTML = '<option value="">Permitir Todas / Default</option>';
+            vlans.forEach(v => {
+                select.innerHTML += `<option value="${v.id}">VLAN ${v.id} - ${v.name}</option>`;
+            });
+            if (curVal) select.value = curVal;
+        });
+    }
+
+    function updateInterfaceOptions() {
+        const portCount = parseInt(document.getElementById('port_count').value);
+        const ifType = document.getElementById('interface_type').value;
+        const prefix = ifType === 'GigabitEthernet' ? 'Gi0/' : (ifType === 'FastEthernet' ? 'Fa0/' : 'Te0/');
+
+        document.querySelectorAll('.if-name').forEach(select => {
+            const currentVal = select.value;
+            select.innerHTML = '';
+            for (let i = 1; i <= portCount; i++) {
+                const opt = document.createElement('option');
+                opt.value = `${prefix}${i}`;
+                opt.textContent = `${prefix}${i}`;
+                select.appendChild(opt);
+            }
+            if (currentVal) select.value = currentVal;
+        });
+    }
+
+    function addInterfaceRow() {
+        const tbody = document.querySelectorAll('#interfaces-table tbody')[0];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><select class="if-name"></select></td>
+            <td>
+                <select class="if-mode" onchange="handleIfRoleChange(this)">
+                    <option value="L3 Routed">L3 Routed</option>
+                    <option value="Access">Access (L2)</option>
+                    <option value="Trunk">Trunk (L2)</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" value="10.240.1.2/30" class="if-ip-field">
+                <select class="if-vlan-field hidden"></select>
+            </td>
+            <td>
+                <div class="checkbox-group" style="grid-template-columns:1fr 1fr;">
+                    <label style="font-size:0.75rem;"><input type="checkbox" class="if-pf"> PortFast</label>
+                    <label style="font-size:0.75rem;"><input type="checkbox" class="if-bpdu"> BPDUGuard</label>
+                </div>
+            </td>
+            <td><button type="button" class="btn-danger" onclick="removeRow(this)">X</button></td>
+        `;
+        tbody.appendChild(row);
+        updateInterfaceOptions();
+        refreshVlanDropdowns();
+    }
+
+    function addVlanRow() {
+        const tbody = document.querySelectorAll('#vlan-table tbody')[0];
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><input type="number" value="20" class="v-id" onchange="refreshVlanDropdowns()"></td>
+            <td><input type="text" value="INVITADOS" class="v-name" onchange="refreshVlanDropdowns()"></td>
+            <td style="text-align:center;"><input type="checkbox" class="v-svi-cb" onchange="toggleSviInput(this)"></td>
+            <td><input type="text" value="10.240.20.1/24" class="v-svi-ip" disabled></td>
+            <td><button type="button" class="btn-danger" onclick="removeVlanRow(this)">X</button></td>
+        `;
+        tbody.appendChild(row);
+        refreshVlanDropdowns();
+    }
+
+    function removeVlanRow(btn) {
+        btn.closest('tr').remove();
+        refreshVlanDropdowns();
+    }
+
+    function removeRow(btn) { btn.closest('tr').remove(); }
+
+    // TOPOLOGÍA & MODAL
+    function openAddDeviceModal() { document.getElementById('device-modal').classList.remove('hidden'); }
+    function closeAddDeviceModal() { document.getElementById('device-modal').classList.add('hidden'); }
+
+    function confirmAddDevice() {
+        const name = document.getElementById('modal-dev-name').value.trim();
+        const type = document.getElementById('modal-dev-type').value;
+        const maxPorts = parseInt(document.getElementById('modal-dev-ports').value);
+
+        if (!name) return;
+
+        const id = "DEV-" + (activeTopology.nodes.length + 1);
+        activeTopology.nodes.push({ id, name, type, maxPorts, x: 100 + (activeTopology.nodes.length * 80) % 600, y: 150 });
+        closeAddDeviceModal();
+        renderTopology();
+    }
+
+    function getUsedPorts(nodeId) {
+        let ports = [];
+        activeTopology.links.forEach(l => {
+            if (l.source === nodeId) ports.push(l.srcPort);
+            if (l.target === nodeId) ports.push(l.dstPort);
+        });
+        return ports;
+    }
+
+    function updatePortSelectors() {
+        const srcNodeId = document.getElementById('link-src-node').value;
+        const dstNodeId = document.getElementById('link-dst-node').value;
+
+        const srcNode = activeTopology.nodes.find(n => n.id === srcNodeId);
+        const dstNode = activeTopology.nodes.find(n => n.id === dstNodeId);
+
+        const srcPortSel = document.getElementById('link-src-port');
+        const dstPortSel = document.getElementById('link-dst-port');
+
+        srcPortSel.innerHTML = '';
+        dstPortSel.innerHTML = '';
+
+        if (srcNode) {
+            const used = getUsedPorts(srcNode.id);
+            for (let i = 1; i <= srcNode.maxPorts; i++) {
+                const pname = `Gi0/${i}`;
+                if (!used.includes(pname)) srcPortSel.innerHTML += `<option value="${pname}">${pname}</option>`;
+            }
+        }
+
+        if (dstNode) {
+            const used = getUsedPorts(dstNode.id);
+            for (let i = 1; i <= dstNode.maxPorts; i++) {
+                const pname = `Gi0/${i}`;
+                if (!used.includes(pname)) dstPortSel.innerHTML += `<option value="${pname}">${pname}</option>`;
+            }
+        }
+    }
+
+    function createDeviceLink() {
+        const srcNodeId = document.getElementById('link-src-node').value;
+        const dstNodeId = document.getElementById('link-dst-node').value;
+        const srcPort = document.getElementById('link-src-port').value;
+        const dstPort = document.getElementById('link-dst-port').value;
+
+        if (srcNodeId === dstNodeId) { alert("No puede enlazar un equipo consigo mismo."); return; }
+        if (!srcPort || !dstPort) { alert("Sin puertos libres suficientes."); return; }
+
+        activeTopology.links.push({
+            id: "LINK-" + (activeTopology.links.length + 1),
+            source: srcNodeId, srcPort: srcPort,
+            target: dstNodeId, dstPort: dstPort
+        });
+
+        renderTopology();
+    }
+
+    function removeLink(linkId) {
+        activeTopology.links = activeTopology.links.filter(l => l.id !== linkId);
+        renderTopology();
+    }
+
+    function renderTopology() {
+        renderSVG();
+        updateNodeSelectors();
+        updateSummaryTables();
+    }
+
+    function renderSVG() {
+        const svg = document.getElementById('topo-svg');
+        svg.innerHTML = '';
+
+        if (activeTopology.nodes.length === 0) {
+            svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8">Agregue dispositivos o cargue un JSON para visualizar el diagrama</text>';
+            return;
+        }
+
+        activeTopology.links.forEach(link => {
+            const src = activeTopology.nodes.find(n => n.id === link.source);
+            const dst = activeTopology.nodes.find(n => n.id === link.target);
+            if (src && dst) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", src.x); line.setAttribute("y1", src.y);
+                line.setAttribute("x2", dst.x); line.setAttribute("y2", dst.y);
+                line.setAttribute("stroke", "#38bdf8"); line.setAttribute("stroke-width", "2");
+                svg.appendChild(line);
+            }
+        });
+
+        activeTopology.nodes.forEach(node => {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x); circle.setAttribute("cy", node.y); circle.setAttribute("r", "18");
+            circle.setAttribute("fill", node.type === "Router WAN" ? "#22c55e" : "#0369a1");
+            svg.appendChild(circle);
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", node.x); text.setAttribute("y", node.y + 30);
+            text.setAttribute("fill", "#f8fafc"); text.setAttribute("font-size", "11");
+            text.setAttribute("text-anchor", "middle"); text.textContent = `${node.name}`;
+            svg.appendChild(text);
+        });
+    }
+
+    function updateNodeSelectors() {
+        const srcSel = document.getElementById('link-src-node');
+        const dstSel = document.getElementById('link-dst-node');
+        srcSel.innerHTML = ''; dstSel.innerHTML = '';
+
+        activeTopology.nodes.forEach(n => {
+            srcSel.innerHTML += `<option value="${n.id}">${n.name} (${n.type})</option>`;
+            dstSel.innerHTML += `<option value="${n.id}">${n.name} (${n.type})</option>`;
+        });
+        updatePortSelectors();
+    }
+
+    function updateSummaryTables() {
+        const nTbody = document.querySelectorAll('#nodes-summary-table tbody')[0];
+        nTbody.innerHTML = '';
+        activeTopology.nodes.forEach(node => {
+            const usedCount = getUsedPorts(node.id).length;
+            nTbody.innerHTML += `
+                <tr>
+                    <td><strong>${node.name}</strong> (${node.id})</td>
+                    <td>${node.type}</td>
+                    <td>${node.maxPorts} Puertos</td>
+                    <td><span style="color:${usedCount >= node.maxPorts ? 'var(--danger)' : 'var(--accent)'}">${usedCount}</span></td>
+                    <td><span style="color:var(--success)">${node.maxPorts - usedCount}</span></td>
+                </tr>
+            `;
+        });
+
+        const lTbody = document.querySelectorAll('#links-summary-table tbody')[0];
+        lTbody.innerHTML = '';
+        if (activeTopology.links.length === 0) {
+            lTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Sin enlaces activos.</td></tr>';
+            return;
+        }
+
+        activeTopology.links.forEach(l => {
+            const src = activeTopology.nodes.find(n => n.id === l.source);
+            const dst = activeTopology.nodes.find(n => n.id === l.target);
+            lTbody.innerHTML += `
+                <tr>
+                    <td>${src ? src.name : l.source} (<strong>${l.srcPort}</strong>)</td>
+                    <td>${dst ? dst.name : l.target} (<strong>${l.dstPort}</strong>)</td>
+                    <td><button type="button" class="btn-danger" onclick="removeLink('${l.id}')">Eliminar Enlace</button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function loadTopologyFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                activeTopology = JSON.parse(e.target.result);
+                renderTopology();
+            } catch (err) { alert('Error al leer el archivo JSON.'); }
+        };
+        reader.readAsText(file);
+    }
+
+    function exportTopologyJSON() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeTopology, null, 2));
+        const link = document.createElement('a');
+        link.setAttribute("href", dataStr);
+        link.setAttribute("download", "wan_topology_config.json");
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    function clearTopology() { activeTopology = { nodes: [], links: [] }; renderTopology(); }
+
+    async function processEngine() {
+        const vlans = [];
+        document.querySelectorAll('#vlan-table tbody tr').forEach(row => {
+            vlans.push({
+                vlan_id: parseInt(row.querySelector('.v-id').value),
+                vlan_name: row.querySelector('.v-name').value,
+                is_svi: row.querySelector('.v-svi-cb').checked,
+                svi_ip: row.querySelector('.v-svi-ip').value
+            });
+        });
+
+        const interfaces = [];
+        document.querySelectorAll('#interfaces-table tbody tr').forEach(row => {
+            const role = row.querySelector('.if-mode').value;
+            interfaces.push({
+                port_name: row.querySelector('.if-name').value,
+                role: role,
+                ip_cidr: role === 'L3 Routed' ? row.querySelector('.if-ip-field').value : "",
+                assigned_vlan: role !== 'L3 Routed' ? row.querySelector('.if-vlan-field').value : "",
+                portfast: row.querySelector('.if-pf').checked,
+                bpdu_guard: row.querySelector('.if-bpdu').checked
+            });
+        });
+
+        const ospfEnabled = document.getElementById('ospf-toggle').checked;
+        const ospfData = ospfEnabled ? {
+            enabled: true,
+            process_id: parseInt(document.getElementById('ospf-pid').value),
+            area: document.getElementById('ospf-area').value,
+            router_id: document.getElementById('ospf-rid').value
+        } : null;
+
+        const protocols = [];
+        document.querySelectorAll('.proto-cb:checked').forEach(cb => {
+            if (!cb.closest('.hidden')) protocols.push(cb.value);
+        });
+
+        const payload = {
+            hostname: document.getElementById('hostname').value,
+            mgmt_ip: document.getElementById('mgmt_ip').value,
+            device_type: document.getElementById('device_type').value,
+            vendor: document.getElementById('vendor').value,
+            port_count: parseInt(document.getElementById('port_count').value),
+            interface_type: document.getElementById('interface_type').value,
+            base_ip_cidr: document.getElementById('base_ip_cidr').value,
+            interfaces: interfaces,
+            vlans: vlans,
+            ospf: ospfData,
+            protocols: protocols,
+            enable_vpn: document.getElementById('enable_vpn').checked
+        };
+
+        try {
+            const response = await fetch('http://localhost:8000/api/generate-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                alert('Error: ' + err.detail);
+                return;
+            }
+
+            const data = await response.json();
+
+            // Render IP Planning
+            const ipTbody = document.querySelectorAll('#output-ip-table tbody')[0];
+            ipTbody.innerHTML = '';
+            data.ip_planning.forEach(item => {
+                ipTbody.innerHTML += `
+                    <tr>
+                        <td><strong>${item.vlan_id}</strong></td>
+                        <td>${item.vlan_name}</td>
+                        <td>${item.network_ip_cidr}</td>
+                        <td>${item.netmask}</td>
+                        <td>${item.wildcard}</td>
+                        <td>${item.gateway}</td>
+                        <td>${item.dhcp_range}</td>
+                        <td>${item.broadcast}</td>
+                    </tr>
+                `;
+            });
+
+            // Render BOM Desglosado
+            const bomContainer = document.getElementById('bom-output');
+            let bomHtml = '<ul>';
+            data.bill_of_materials.items.forEach(i => {
+                bomHtml += `<li>${i.description}: <strong>$${i.cost_usd.toFixed(2)} USD</strong></li>`;
+            });
+            bomHtml += `</ul><div style="border-top:1px solid var(--border); padding-top:5px; margin-top:5px;"><strong>TOTAL ESTIMADO: $${data.bill_of_materials.total_estimated_usd.toFixed(2)} USD</strong></div>`;
+            bomContainer.innerHTML = bomHtml;
+
+            // Render CLI
+            document.getElementById('cli-output').textContent = data.cli_script;
+            document.getElementById('btn-copy').disabled = false;
+            document.getElementById('btn-download').disabled = false;
+
+        } catch (e) {
+            alert('Error al conectar con la API Backend: ' + e.message);
+        }
+    }
+
+    function copyCliToClipboard() {
+        navigator.clipboard.writeText(document.getElementById('cli-output').textContent).then(() => {
+            alert('¡Script CLI copiado al portapapeles!');
+        });
+    }
+
+    function downloadCliFile() {
+        const cliText = document.getElementById('cli-output').textContent;
+        const hostname = document.getElementById('hostname').value || 'config';
+        const vendor = document.getElementById('vendor').value;
+        const blob = new Blob([cliText], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.download = `${hostname}_${vendor}_config.txt`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+    }
+</script>
+</body>
+</html>
