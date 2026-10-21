@@ -4,14 +4,14 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-VERSION = "3.0-Enterprise-Architecture"
+VERSION = "3.1-Enterprise-Architecture-Secure"
 
 app = FastAPI(
     title="WAN Network Design & IaC Engine",
     version=VERSION,
-    description="Engine Multi-Vendor Abstraído con Validación por Capas, Drivers Específicos y Generación IPsec/OSPF"
+    description="Engine Multi-Vendor Abstraído con Validación Estricta por Capas, Drivers Específicos y OSPF/VLSM Robusto"
 )
 
 app.add_middleware(
@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # ===================================================================
-# 1. MODELOS DE DATOS Y ENTRADA (PAYLOAD)
+# 1. MODELOS DE DATOS Y VALIDACIÓN ESTRICTA (PAYLOAD)
 # ===================================================================
 
 class VlanItem(BaseModel):
@@ -31,6 +31,7 @@ class VlanItem(BaseModel):
     vlan_name: str
     is_svi: bool = False
     svi_ip: Optional[str] = ""
+    prefix: Optional[int] = 24  # Requerido para cálculo VLSM real por VLAN
 
 class InterfaceConfig(BaseModel):
     port_name: str
@@ -61,8 +62,73 @@ class NetworkRequest(BaseModel):
     protocols: List[str] = []
     enable_vpn: bool = False
 
+    @model_validator(mode='after')
+    def validate_network_request(self) -> 'NetworkRequest':
+        # Condición 1 & 5: Validación de duplicados y errores en inputs
+        port_names = [i.port_name for i in self.interfaces]
+        if len(port_names) != len(set(port_names)):
+            raise HTTPException(status_code=400, detail="Error de validación: Existen nombres de puertos duplicados en las interfaces.")
+
+        vlan_ids = [v.vlan_id for v in self.vlans]
+        if len(vlan_ids) != len(set(vlan_ids)):
+            raise HTTPException(status_code=400, detail="Error de validación: Existen IDs de VLAN repetidos.")
+
+        # Recopilar y validar IPs para detectar duplicidades o formatos incorrectos
+        ip_registry = []
+        try:
+            mgmt_obj = ipaddress.ip_address(self.mgmt_ip)
+            ip_registry.append(str(mgmt_obj))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"IP de Gestión inválida: {self.mgmt_ip}")
+
+        for iface in self.interfaces:
+            if iface.ip_cidr:
+                try:
+                    iface_ip = str(ipaddress.ip_interface(iface.ip_cidr).ip)
+                    if iface_ip in ip_registry:
+                        raise HTTPException(status_code=400, detail=f"Error de lógica: Dirección IP duplicada detectada en interfaces: {iface_ip}")
+                    ip_registry.append(iface_ip)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"IP/CIDR de interfaz inválido: {iface.ip_cidr}")
+
+        for v in self.vlans:
+            if v.is_svi and v.svi_ip:
+                try:
+                    svi_ip_val = str(ipaddress.ip_interface(v.svi_ip).ip)
+                    if svi_ip_val in ip_registry:
+                        raise HTTPException(status_code=400, detail=f"Error de lógica: Dirección IP duplicada en SVI/VLAN {v.vlan_id}: {svi_ip_val}")
+                    ip_registry.append(svi_ip_val)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"IP SVI inválida para VLAN {v.vlan_id}: {v.svi_ip}")
+
+        # Condición 4: Validación estricta de Roles vs Tipo de Dispositivo
+        # "El único que puede cumplir con el rol de Access, Trunk y L3 solo es el Sw Capa 3"
+        valid_device_types = ["Router WAN", "Switch L3", "Switch L2"]
+        if self.device_type not in valid_device_types:
+            raise HTTPException(status_code=400, detail=f"Tipo de dispositivo no soportado: {self.device_type}")
+
+        for iface in self.interfaces:
+            if self.device_type == "Router WAN":
+                if iface.role in ["Access", "Trunk"]:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Error de lógica: Un 'Router WAN' no puede tener interfaces con rol '{iface.role}'. Los routers operan exclusivamente en Capa 3 ('L3 Routed')."
+                    )
+            elif self.device_type == "Switch L2":
+                if iface.role == "L3 Routed":
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Error de lógica: Un 'Switch L2' no puede tener interfaces en modo 'L3 Routed'."
+                    )
+                if self.ospf and self.ospf.enabled:
+                    raise HTTPException(status_code=400, detail="Error de lógica: Un Switch L2 no soporta OSPF.")
+                if self.enable_vpn:
+                    raise HTTPException(status_code=400, detail="Error de lógica: Un Switch L2 no soporta VPN IPsec.")
+
+        return self
+
 # ===================================================================
-# FASE 1 & 2: SANITIZACIÓN Y ABSTRACCIÓN INTERMEDIA (IR)
+# FASE 2: NORMALIZACIÓN Y ABSTRACCIÓN INTERMEDIA (IR)
 # ===================================================================
 
 class NormalizedInterface:
@@ -75,28 +141,17 @@ class NormalizedInterface:
         self.network = ""
         self.prefix = 0
         self.assigned_vlan = raw.assigned_vlan
-        self.portfast = False
-        self.bpdu_guard = False
-        self.port_security = False
+        self.portfast = raw.portfast
+        self.bpdu_guard = raw.bpdu_guard
+        self.port_security = raw.port_security
 
-        # SANITIZACIÓN RIGUROSA L2 VS L3
-        if raw.role == "L3 Routed":
-            # Sanitizar: ignorar flags L2 en puertos L3
-            if raw.ip_cidr and "/" in raw.ip_cidr:
-                try:
-                    iface = ipaddress.ip_interface(raw.ip_cidr)
-                    self.ip_address = str(iface.ip)
-                    self.netmask = str(iface.netmask)
-                    self.wildcard = str(ipaddress.IPv4Address(int(iface.network.hostmask)))
-                    self.network = str(iface.network.network_address)
-                    self.prefix = iface.network.prefixlen
-                except ValueError:
-                    pass
-        else:
-            # En roles Access / Trunk, preservar flags L2 y sanitizar IP
-            self.portfast = raw.portfast
-            self.bpdu_guard = raw.bpdu_guard
-            self.port_security = raw.port_security
+        if raw.role == "L3 Routed" and raw.ip_cidr:
+            iface = ipaddress.ip_interface(raw.ip_cidr)
+            self.ip_address = str(iface.ip)
+            self.netmask = str(iface.netmask)
+            self.wildcard = str(ipaddress.IPv4Address(int(iface.network.hostmask)))
+            self.network = str(iface.network.network_address)
+            self.prefix = iface.network.prefixlen
 
 class NormalizedNetworkModel:
     def __init__(self, payload: NetworkRequest):
@@ -104,47 +159,54 @@ class NormalizedNetworkModel:
         self.mgmt_ip = payload.mgmt_ip
         self.device_type = payload.device_type
         self.vendor = payload.vendor
-        self.enable_vpn = payload.enable_vpn and payload.device_type != "Switch L2"
+        self.enable_vpn = payload.enable_vpn
         self.protocols = payload.protocols
         self.warnings: List[str] = []
 
-        if payload.enable_vpn and payload.device_type == "Switch L2":
-            self.warnings.append("IPsec VPN fue omitido: No es compatible con Switch Capa 2.")
-
-        # Sanitizar e abstraer Interfaces
         self.interfaces = [NormalizedInterface(i) for i in payload.interfaces]
 
-        # Sanitizar e abstraer VLANs / SVIs
+        # Sanitizar y estructurar VLANs / SVIs con soporte OSPF (Condición 2)
         self.vlans = []
+        self.svi_networks = []
         for v in payload.vlans:
             svi_ip_clean = ""
             svi_netmask = ""
-            if v.is_svi and v.svi_ip and "/" in v.svi_ip:
-                try:
-                    svi_iface = ipaddress.ip_interface(v.svi_ip)
-                    svi_ip_clean = str(svi_iface.ip)
-                    svi_netmask = str(svi_iface.netmask)
-                except ValueError:
-                    pass
+            svi_network = ""
+            svi_wildcard = ""
+            svi_prefix = v.prefix
+            
+            if v.is_svi and v.svi_ip:
+                svi_iface = ipaddress.ip_interface(v.svi_ip)
+                svi_ip_clean = str(svi_iface.ip)
+                svi_netmask = str(svi_iface.netmask)
+                svi_network = str(svi_iface.network.network_address)
+                svi_wildcard = str(ipaddress.IPv4Address(int(svi_iface.network.hostmask)))
+                svi_prefix = svi_iface.network.prefixlen
+                
+                self.svi_networks.append({
+                    "network": svi_network,
+                    "wildcard": svi_wildcard,
+                    "prefix": svi_prefix
+                })
+
             self.vlans.append({
                 "id": v.vlan_id,
                 "name": v.vlan_name,
                 "is_svi": v.is_svi,
                 "svi_ip": svi_ip_clean,
-                "svi_netmask": svi_netmask
+                "svi_netmask": svi_netmask,
+                "svi_network": svi_network,
+                "svi_wildcard": svi_wildcard
             })
 
-        # Sanitizar e abstraer OSPF
+        # Sanitizar OSPF
         self.ospf = None
         if payload.ospf and payload.ospf.enabled:
-            if payload.device_type == "Switch L2":
-                self.warnings.append("OSPF fue omitido: No es compatible con Switch Capa 2.")
-            else:
-                self.ospf = {
-                    "process_id": payload.ospf.process_id,
-                    "area": payload.ospf.area,
-                    "router_id": payload.ospf.router_id or payload.mgmt_ip
-                }
+            self.ospf = {
+                "process_id": payload.ospf.process_id,
+                "area": payload.ospf.area,
+                "router_id": payload.ospf.router_id or payload.mgmt_ip
+            }
 
 # ===================================================================
 # FASE 3: STRATEGY PATTERN - DRIVERS MULTI-VENDOR
@@ -176,7 +238,7 @@ class CiscoDriver(BaseVendorDriver):
             "ip ssh version 2",
             "no ip http server\nno ip http secure-server",
             "service password-encryption",
-            "banner motd ^C\\n ACCESO RESTRINGIDO - MONITOREADO POR SOC\\n^C"
+            "banner motd ^C\n ACCESO RESTRINGIDO - MONITOREADO POR SOC\n^C"
         ]
         if "Disable Discovery" in model.protocols:
             cli.append("no cdp run\nno lldp run")
@@ -217,9 +279,12 @@ class CiscoDriver(BaseVendorDriver):
     def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
         if not model.ospf: return []
         cli = [f"router ospf {model.ospf['process_id']}", f" router-id {model.ospf['router_id']}"]
+        # Incluir tanto interfaces L3 físicas como redes SVI (Condición 2)
         for iface in model.interfaces:
             if iface.role == "L3 Routed" and iface.network:
                 cli.append(f" network {iface.network} {iface.wildcard} area {model.ospf['area']}")
+        for svi in model.svi_networks:
+            cli.append(f" network {svi['network']} {svi['wildcard']} area {model.ospf['area']}")
         return cli
 
     def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
@@ -279,6 +344,8 @@ class HuaweiDriver(BaseVendorDriver):
         for iface in model.interfaces:
             if iface.role == "L3 Routed" and iface.network:
                 cli.append(f"  network {iface.network} {iface.wildcard}")
+        for svi in model.svi_networks:
+            cli.append(f"  network {svi['network']} {svi['wildcard']}")
         cli.append(" q\n q")
         return cli
 
@@ -330,13 +397,16 @@ class FortinetDriver(BaseVendorDriver):
     def generate_ospf(self, model: NormalizedNetworkModel) -> List[str]:
         if not model.ospf: return []
         cli = ["config router ospf", f"    set router-id {model.ospf['router_id']}", "    config area"]
-        cli.append(f"        edit {model.ospf['area']}\n        next\n    end", )
+        cli.append(f"        edit {model.ospf['area']}\n        next\n    end")
         cli.append("    config network")
         idx = 1
         for iface in model.interfaces:
             if iface.role == "L3 Routed" and iface.network:
                 cli.append(f"        edit {idx}\n            set prefix {iface.network}/{iface.prefix}\n            set area {model.ospf['area']}\n        next")
                 idx += 1
+        for svi in model.svi_networks:
+            cli.append(f"        edit {idx}\n            set prefix {svi['network']}/{svi['prefix']}\n            set area {model.ospf['area']}\n        next")
+            idx += 1
         cli.append("    end\nend")
         return cli
 
@@ -394,6 +464,8 @@ class MikroTikDriver(BaseVendorDriver):
         for iface in model.interfaces:
             if iface.role == "L3 Routed" and iface.network:
                 cli.append(f"/routing ospf network add network={iface.network}/{iface.prefix} area=area-{model.ospf['area']}")
+        for svi in model.svi_networks:
+            cli.append(f"/routing ospf network add network={svi['network']}/{svi['prefix']} area=area-{model.ospf['area']}")
         return cli
 
     def generate_vpn(self, model: NormalizedNetworkModel) -> List[str]:
@@ -425,29 +497,33 @@ class DriverFactory:
         return driver
 
 # ===================================================================
-# MOTOR DE CÁLCULO DE PRESUPUESTO (BOM) & IP PLANNING
+# MOTOR DE CÁLCULO VLSM REAL & PRESUPUESTO (BOM)
 # ===================================================================
 
 def perform_ip_planning(base_cidr: str, vlans: List[VlanItem]):
     try:
-        network = ipaddress.ip_network(base_cidr, strict=False)
+        base_network = ipaddress.ip_network(base_cidr, strict=False)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"CIDR Base Inválido: {str(e)}")
 
     planning_results = []
-    num_vlans = max(len(vlans), 1)
-    bits_to_add = math.ceil(math.log2(num_vlans)) if num_vlans > 1 else 0
-    new_prefix = network.prefixlen + bits_to_add
+    current_address = base_network.network_address
 
-    if new_prefix > 30:
-        raise HTTPException(status_code=400, detail="El prefijo base no permite asignar tantas subredes.")
-
-    subnets = list(network.subnets(new_prefix=new_prefix))
-
-    for idx, vlan in enumerate(vlans):
-        sub = subnets[idx] if idx < len(subnets) else subnets[-1]
-        hosts = list(sub.hosts())
+    # Condición 3: Cálculo VLSM real y secuencial basado en los prefijos/subredes solicitados para cada VLAN
+    for vlan in vlans:
+        target_prefix = vlan.prefix if vlan.prefix else 24
+        if target_prefix < base_network.prefixlen:
+            raise HTTPException(status_code=400, detail=f"El prefijo /{target_prefix} para la VLAN {vlan.vlan_id} es más grande que el bloque base /{base_network.prefixlen}")
         
+        try:
+            sub = ipaddress.ip_network(f"{current_address}/{target_prefix}", strict=False)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"No hay suficiente espacio en la red base para la VLAN {vlan.vlan_id} con prefijo /{target_prefix}")
+
+        if not sub.subnet_of(base_network):
+            raise HTTPException(status_code=400, detail=f"Error VLSM: La subred calculada para la VLAN {vlan.vlan_id} excede los límites de la red base.")
+
+        hosts = list(sub.hosts())
         planning_results.append({
             "vlan_id": vlan.vlan_id,
             "vlan_name": vlan.vlan_name,
@@ -458,6 +534,10 @@ def perform_ip_planning(base_cidr: str, vlans: List[VlanItem]):
             "dhcp_range": f"{hosts[1]} - {hosts[-1]}" if len(hosts) > 1 else "N/A",
             "broadcast": str(sub.broadcast_address)
         })
+
+        # Avanzar el puntero a la siguiente dirección libre para el algoritmo VLSM secuencial
+        current_address = sub.broadcast_address + 1
+
     return planning_results
 
 def calculate_bom(vendor: str, device_type: str, port_count: int, enable_vpn: bool, interfaces: List[InterfaceConfig]):
@@ -484,7 +564,7 @@ def calculate_bom(vendor: str, device_type: str, port_count: int, enable_vpn: bo
 
 @app.post("/api/generate-config")
 async def generate_configuration(payload: NetworkRequest):
-    # 1. Fase de Sanitización y Modelo Intermedio
+    # 1. Fase de Sanitización y Modelo Intermedio (Con validadores integrados)
     model = NormalizedNetworkModel(payload)
     
     # 2. Selección de Driver de Fabricante
