@@ -232,6 +232,8 @@ class BaseVendorDriver(ABC):
 class CiscoDriver(BaseVendorDriver):
     def generate_hardening(self, model: NormalizedNetworkModel) -> List[str]:
         cli = [
+            "enable",
+            "configure terminal",
             f"hostname {model.hostname}",
             "ip domain-name empresa.local",
             "crypto key generate rsa modulus 2048",
