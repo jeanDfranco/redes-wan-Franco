@@ -1,4 +1,4 @@
-html_code = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -947,14 +947,112 @@ html_code = '''<!DOCTYPE html>
     }
 
     async function processEngine() {
-        // ... (código existente de recolección de payload y fetch)
-        alert('Simulación de envío a API: Los parámetros y topología se han procesado correctamente.');
-    }
-
-    function copyCliToClipboard() {
-        navigator.clipboard.writeText(document.getElementById('cli-output').textContent).then(() => {
-            alert('¡Script CLI copiado al portapapeles!');
+        const vlans = [];
+        document.querySelectorAll('#vlan-table tbody tr').forEach(row => {
+            vlans.push({
+                vlan_id: parseInt(row.querySelector('.v-id').value),
+                vlan_name: row.querySelector('.v-name').value,
+                is_svi: row.querySelector('.v-svi-cb') ? row.querySelector('.v-svi-cb').checked : false,
+                svi_ip: row.querySelector('.v-svi-ip') ? row.querySelector('.v-svi-ip').value : "",
+                router_subint_enabled: row.querySelector('.r-sub-cb') ? row.querySelector('.r-sub-cb').checked : false,
+                router_parent_interface: row.querySelector('.r-parent-if') ? row.querySelector('.r-parent-if').value : "",
+                router_subint_ip: row.querySelector('.r-sub-ip') ? row.querySelector('.r-sub-ip').value : ""
+            });
         });
+
+        const interfaces = [];
+        document.querySelectorAll('#interfaces-table tbody tr').forEach(row => {
+            const role = row.querySelector('.if-mode').value;
+            interfaces.push({
+                port_name: row.querySelector('.if-name').value,
+                role: role,
+                ip_cidr: role === 'L3 Routed' ? row.querySelector('.if-ip-field').value : "",
+                assigned_vlan: role !== 'L3 Routed' ? row.querySelector('.if-vlan-field').value : "",
+                portfast: row.querySelector('.if-pf').checked,
+                bpdu_guard: row.querySelector('.if-bpdu').checked
+            });
+        });
+
+        let totalPorts = 0;
+        document.querySelectorAll('#hardware-modules-table tbody tr').forEach(row => {
+            totalPorts += parseInt(row.querySelector('.mod-count').value) || 0;
+        });
+
+        // Recolección de los parámetros de configuración y topología
+        const payload = {
+            hostname: document.getElementById('hostname').value,
+            mgmt_ip: document.getElementById('mgmt_ip').value,
+            device_type: document.getElementById('device_type').value,
+            vendor: document.getElementById('vendor').value,
+            port_count: totalPorts,
+            interface_type: "GigabitEthernet",
+            base_ip_cidr: document.getElementById('base_ip_cidr').value,
+            interfaces: interfaces,
+            vlans: vlans,
+            enable_vpn: document.getElementById('enable_vpn') ? document.getElementById('enable_vpn').checked : false,
+            topology: activeTopology
+        };
+
+        // Mensaje de estado mientras carga
+        document.getElementById('cli-output').textContent = "Solicitando generación al API...";
+        document.getElementById('btn-copy').disabled = true;
+        document.getElementById('btn-download').disabled = true;
+
+        try {
+            const response = await fetch('http://localhost:8000/api/generate-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                alert('Error: ' + err.detail);
+                document.getElementById('cli-output').textContent = "! Error al conectar con el backend: " + err.detail;
+                return;
+            }
+
+            const data = await response.json();
+
+            const ipTbody = document.querySelectorAll('#output-ip-table tbody')[0];
+            if (ipTbody && data.ip_planning) {
+                ipTbody.innerHTML = '';
+                data.ip_planning.forEach(item => {
+                    ipTbody.innerHTML += `
+                        <tr>
+                            <td><strong>${item.vlan_id}</strong></td>
+                            <td>${item.vlan_name}</td>
+                            <td>${item.network_ip_cidr}</td>
+                            <td>${item.netmask}</td>
+                            <td>${item.wildcard}</td>
+                            <td>${item.gateway}</td>
+                            <td>${item.dhcp_range}</td>
+                            <td>${item.broadcast}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            const bomContainer = document.getElementById('bom-output');
+            if (bomContainer && data.bill_of_materials) {
+                let bomHtml = '<ul>';
+                data.bill_of_materials.items.forEach(i => {
+                    bomHtml += `<li>${i.description}: <strong>$${i.cost_usd.toFixed(2)} USD</strong></li>`;
+                });
+                bomHtml += `</ul><div style="border-top:1px solid var(--border); padding-top:5px; margin-top:5px;"><strong>TOTAL ESTIMADO: $${data.bill_of_materials.total_estimated_usd.toFixed(2)} USD</strong></div>`;
+                bomContainer.innerHTML = bomHtml;
+            }
+
+            if (data.cli_script) {
+                document.getElementById('cli-output').textContent = data.cli_script;
+                document.getElementById('btn-copy').disabled = false;
+                document.getElementById('btn-download').disabled = false;
+            }
+
+        } catch (error) {
+            document.getElementById('cli-output').textContent = "! Error al conectar con el backend: " + error.message;
+            console.error("API Fetch Error:", error);
+        }
     }
 
     function downloadCliFile() {
@@ -969,4 +1067,4 @@ html_code = '''<!DOCTYPE html>
     }
 </script>
 </body>
-</html>
+</html
