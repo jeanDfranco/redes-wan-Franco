@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Engine de Redes WAN & Ciberdefensa - v3.7 Enterprise Modular + Topología</title>
-    <style>
+    <title>Engine de Redes WAN & Ciberdefensa - v3.9 Enterprise Modular + Topología</title>
+    <script type="text/javascript" src="https://me.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=VOb5VK1Bcp_whrN5ds2NUoRiEiRMosVYBKMO40ofj4cBQNvVO1M_U6gbrqSS-6YyDKwl4PYrg0VZevZdBj25n-7k9keSRY5bobFKHdul_hiMCcU67kIYzkdNGQ5SRd0SBxJV_mqHeyAf3ELyHSC-xII9jSKEMHY_HgTf0cjZWAojbvR-GpYIqpo26CcF0GGb8Py_i3vkVHVhWVWd2ITL0ohGXPTroUnYIBjBfjTcqfuTJncCREuA3fbPCbuZIML_tjDWYbIBfQymwAO22w1D7TqrkUizW5pqxW4OEmOHixHzSOfKuCboPwpXqZYu_4J5ewuksjkvlHNpdexrq_CY7g" charset="UTF-8"></script><link rel="stylesheet" crossorigin="anonymous" href="https://me.kis.v2.scr.kaspersky-labs.com/E3E8934C-235A-4B0E-825A-35A08381A191/abn/main.css?attr=aHR0cHM6Ly9jb250cmlidXRpb24udXNlcmNvbnRlbnQuZ29vZ2xlLmNvbS9kb3dubG9hZD9jPUNneGlZWEprWDNOMGIzSmhaMlVTVUJJTmNtVnpjRzl1YzJWZlpHRjBZUm9fQ2pCa1pEVXhZVGhqTXpoaFl6VXdNelptTURBd05qWXdNR0V3WlRJNFpHTTFZekF4TXpBM01USmxNbUl4WkRobU9URVNDeElIRUtYSzZJcVdCeGdCJmZpbGVuYW1lPUZyb250ZW5kX0FjdHVhbGl6YWRvX3YyLmh0bWwmb3BpPTEwMzEzNTA1MA"/><style>
         :root {
             --bg-color: #0f172a;
             --panel-bg: #1e293b;
@@ -87,16 +87,14 @@
 <div class="container">
     <header>
         <h1>WAN Network Design & IaC Engine</h1>
-        <span class="version-tag">Versión: 3.7 Enterprise Modular + Topología</span>
+        <span class="version-tag">Versión: 3.9 Enterprise Modular + Topología Dinámica</span>
     </header>
 
-    <!-- NAVEGACIÓN -->
     <div class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('config-tab')">1. Configuración Individual de Equipo</button>
         <button class="tab-btn" onclick="switchTab('topology-tab')">2. Topología de Red e Interconexiones</button>
     </div>
 
-    <!-- SECCIÓN 1: CONFIGURACIÓN INDIVIDUAL -->
     <div id="config-tab" class="tab-content active">
         <div class="card">
             <h2>1. Parámetros Globales y Módulos de Hardware</h2>
@@ -138,7 +136,6 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN DE MÓDULOS DE HARDWARE E INTERFACES INDEPENDIENTES -->
                 <div class="form-group sub-panel">
                     <label><strong>Módulos de Interfaces de Hardware (Chasis / Tarjetas)</strong></label>
                     <table id="hardware-modules-table">
@@ -169,30 +166,11 @@
                                 </td>
                                 <td><button type="button" class="btn-danger" onclick="removeModuleRow(this)">X</button></td>
                             </tr>
-                            <tr>
-                                <td>
-                                    <select class="mod-type" onchange="refreshAllInterfaceDropdowns()">
-                                        <option value="FastEthernet" selected>FastEthernet</option>
-                                        <option value="GigabitEthernet">GigabitEthernet</option>
-                                        <option value="10GigabitEthernet">10GigabitEthernet</option>
-                                    </select>
-                                </td>
-                                <td><input type="number" value="24" min="1" max="48" class="mod-count" onchange="refreshAllInterfaceDropdowns()"></td>
-                                <td>
-                                    <select class="mod-format" onchange="refreshAllInterfaceDropdowns()">
-                                        <option value="slot_0">Slot Fijo / Base (0/X)</option>
-                                        <option value="slot_0_0">Slot Modular (0/0/X)</option>
-                                        <option value="slot_custom">Slot Tarjeta (0/Y/X)</option>
-                                    </select>
-                                </td>
-                                <td><button type="button" class="btn-danger" onclick="removeModuleRow(this)">X</button></td>
-                            </tr>
                         </tbody>
                     </table>
                     <button type="button" class="btn" style="background:#334155; color:#fff; padding:6px; margin-top:8px;" onclick="addHardwareModuleRow()">+ Agregar Módulo de Interfaces</button>
                 </div>
 
-                <!-- SECCIÓN DINÁMICA DE VLANs / SUBINTERFACES -->
                 <div class="form-group">
                     <label id="vlan-section-label">VLANs y Configuración de Interfaz Virtual SVI</label>
                     <table id="vlan-table">
@@ -215,7 +193,7 @@
                                 <td style="text-align:center;" class="col-switch-mode"><input type="checkbox" class="v-svi-cb" onchange="toggleSviInput(this)"></td>
                                 <td class="col-switch-mode"><input type="text" value="10.240.10.1/24" class="v-svi-ip" disabled></td>
                                 <td style="text-align:center;" class="col-router-mode hidden"><input type="checkbox" class="r-sub-cb" onchange="toggleRouterSubintInputs(this)" checked></td>
-                                <td class="col-router-mode hidden"><select class="r-parent-if"><option value="">-- Seleccionar Puerto Base --</option></select></td>
+                                <td class="col-router-mode hidden"><select class="r-parent-if"><option value="">-- Seleccionar --</option></select></td>
                                 <td class="col-router-mode hidden"><input type="text" value="10.240.10.1/24" class="r-sub-ip"></td>
                                 <td><button type="button" class="btn-danger" onclick="removeVlanRow(this)">X</button></td>
                             </tr>
@@ -224,7 +202,6 @@
                     <button type="button" class="btn" style="background:#334155; color:#fff; padding:5px; margin-top:5px;" onclick="addVlanRow()">+ Añadir VLAN / Subinterfaz</button>
                 </div>
 
-                <!-- ASIGNACIÓN DE INTERFACES -->
                 <div class="form-group">
                     <label>Asignación de Interfaces y Direccionamiento IP</label>
                     <table id="interfaces-table">
@@ -233,7 +210,7 @@
                                 <th>Puerto</th>
                                 <th>Rol / Modo</th>
                                 <th>Configuración IP / VLAN</th>
-                                <th>Seguridad L2</th>
+                                <th class="l2-security-col">Seguridad L2</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -250,8 +227,15 @@
                                 <td>
                                     <input type="text" value="10.240.1.1/30" class="if-ip-field">
                                     <select class="if-vlan-field hidden"></select>
+                                    <div class="trunk-vlan-options hidden" style="display:flex; flex-direction:column; gap:5px;">
+                                        <select class="trunk-mode-sel" onchange="handleTrunkModeChange(this)">
+                                            <option value="all">Permitir Todas</option>
+                                            <option value="specific">VLANs Específicas</option>
+                                        </select>
+                                        <input type="text" class="trunk-specific-vlans hidden" placeholder="Ej: 10,20,30">
+                                    </div>
                                 </td>
-                                <td>
+                                <td class="l2-security-col">
                                     <div class="checkbox-group" style="grid-template-columns:1fr 1fr;">
                                         <label style="font-size:0.75rem;"><input type="checkbox" class="if-pf"> PortFast</label>
                                         <label style="font-size:0.75rem;"><input type="checkbox" class="if-bpdu"> BPDUGuard</label>
@@ -264,10 +248,16 @@
                     <button type="button" class="btn" style="background:#334155; color:#fff; padding:5px; margin-top:5px;" onclick="addInterfaceRow()">+ Agregar Interfaz</button>
                 </div>
 
-                <div class="form-group l3-only" id="vpn-wrapper" style="margin-top:15px;">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="enable_vpn" checked> <strong>Habilitar IPsec VPN (Ciberdefensa WAN)</strong>
+                <div class="form-group sub-panel" style="margin-top:15px;">
+                    <label style="margin-bottom: 10px; font-weight: bold; color: var(--text-main); font-size: 1rem;">Políticas de Seguridad y Enrutamiento</label>
+                    <div class="grid-2" style="margin-bottom: 10px;">
+                        <div class="checkbox-item policy-ospf"><input type="checkbox" id="chk_ospf" checked> OSPF</div>
+                        <div class="checkbox-item policy-dhcp"><input type="checkbox" id="chk_dhcp"> DHCP Snooping</div>
+                        <div class="checkbox-item policy-dai"><input type="checkbox" id="chk_dai"> Dynamic ARP Insp.</div>
+                        <div class="checkbox-item policy-cdp"><input type="checkbox" id="chk_cdp"> Deshabilitar CDP/LLDP</div>
                     </div>
+                    <div class="checkbox-item policy-vpn"><input type="checkbox" id="enable_vpn"> Habilitar IPsec VPN (Ciberdefensa WAN)</div>
+                    <p style="font-size: 0.75rem; color: var(--accent); margin-top: 10px; margin-bottom: 0;">* Nota: Las opciones se adaptan dinámicamente según el tipo de equipo seleccionado.</p>
                 </div>
 
                 <button type="button" class="btn" onclick="processEngine()">Generar Script CLI & Plan IP</button>
@@ -339,10 +329,8 @@
                 </svg>
             </div>
 
-            <!-- INTERFAZ EXPLICITA PARA AGREGAR CONEXIONES (ENLACES) -->
             <div style="margin-top:25px; background-color: var(--panel-bg); padding: 15px; border-radius: 8px; border: 2px solid var(--accent);">
                 <h2 style="border: none; margin-bottom: 10px; color: #fff;">Agregar Conexión / Enlazar Dispositivos</h2>
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">Seleccione el dispositivo origen y destino junto con sus respectivos puertos disponibles para conectarlos en la topología.</p>
                 <div class="grid-4" style="align-items:end;">
                     <div class="form-group" style="margin:0;">
                         <label>Dispositivo Origen</label>
@@ -379,7 +367,7 @@
                     </tbody>
                 </table>
             </div>
-
+            
             <div style="margin-top:20px;">
                 <label>Resumen de Nodos y Capacidad de Puertos:</label>
                 <table id="nodes-summary-table">
@@ -403,7 +391,6 @@
     </div>
 </div>
 
-<!-- MODAL PARA AGREGAR DISPOSITIVO -->
 <div id="device-modal" class="modal-overlay hidden">
     <div class="modal-body">
         <h2 style="margin-bottom:15px;">Agregar Nuevo Dispositivo al Mapa</h2>
@@ -438,13 +425,6 @@
         links: []
     };
 
-    function generateDefaultPorts(count) {
-        let p = [];
-        for(let i=1; i<=Math.min(count, 2); i++) p.push(`GigabitEthernet0/${i}`);
-        for(let i=1; i<=Math.max(0, count-2); i++) p.push(`FastEthernet0/${i}`);
-        return p;
-    }
-
     window.onload = function() {
         refreshAllInterfaceDropdowns();
         handleDeviceTypeChange();
@@ -452,14 +432,30 @@
         renderTopology();
     };
 
+    function copyCliToClipboard() {
+        const cliText = document.getElementById('cli-output').textContent;
+        if (!cliText || cliText.startsWith("! Configure los parámetros") || cliText.startsWith("! Error")) {
+            alert("No hay un script CLI válido para copiar.");
+            return;
+        }
+        navigator.clipboard.writeText(cliText).then(() => {
+            const copyBtn = document.getElementById('btn-copy');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = "¡Copiado!";
+            copyBtn.style.backgroundColor = "#0284c7";
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.backgroundColor = "";
+            }, 2000);
+        });
+    }
+
     function switchTab(tabId) {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         event.target.classList.add('active');
         document.getElementById(tabId).classList.add('active');
-        if(tabId === 'topology-tab') {
-            renderTopology();
-        }
+        if(tabId === 'topology-tab') renderTopology();
     }
 
     function updateLocalNodeName() {
@@ -471,26 +467,80 @@
         }
     }
 
+    function applyDeviceTypeToRow(row) {
+        const devType = document.getElementById('device_type').value;
+        const modeSel = row.querySelector('.if-mode');
+        const optL3 = modeSel.querySelector('option[value="L3 Routed"]');
+        const optAcc = modeSel.querySelector('option[value="Access"]');
+        const optTrk = modeSel.querySelector('option[value="Trunk"]');
+        
+        if (devType === 'Router WAN') {
+            if(optL3) { optL3.disabled = false; optL3.hidden = false; }
+            if(optAcc) { optAcc.disabled = true; optAcc.hidden = true; }
+            if(optTrk) { optTrk.disabled = true; optTrk.hidden = true; }
+            modeSel.value = 'L3 Routed';
+        } else if (devType === 'Switch L2') {
+            if(optL3) { optL3.disabled = true; optL3.hidden = true; }
+            if(optAcc) { optAcc.disabled = false; optAcc.hidden = false; }
+            if(optTrk) { optTrk.disabled = false; optTrk.hidden = false; }
+            if (modeSel.value === 'L3 Routed') modeSel.value = 'Access';
+        } else { // Switch L3
+            if(optL3) { optL3.disabled = false; optL3.hidden = false; }
+            if(optAcc) { optAcc.disabled = false; optAcc.hidden = false; }
+            if(optTrk) { optTrk.disabled = false; optTrk.hidden = false; }
+        }
+        handleIfRoleChange(modeSel);
+    }
+
     function handleDeviceTypeChange() {
         const devType = document.getElementById('device_type').value;
+        
         const switchModeCols = document.querySelectorAll('.col-switch-mode');
         const routerModeCols = document.querySelectorAll('.col-router-mode');
         const label = document.getElementById('vlan-section-label');
+        
+        const polOspf = document.querySelectorAll('.policy-ospf');
+        const polVpn = document.querySelectorAll('.policy-vpn');
+        const polDhcp = document.querySelectorAll('.policy-dhcp');
+        const polDai = document.querySelectorAll('.policy-dai');
 
         if (devType === 'Router WAN') {
             switchModeCols.forEach(el => el.classList.add('hidden'));
             routerModeCols.forEach(el => el.classList.remove('hidden'));
             label.textContent = "Segmentación de VLANs y Creación de Subinterfaces Router (Dot1Q)";
-        } else {
+            
+            polOspf.forEach(el => el.classList.remove('hidden'));
+            polVpn.forEach(el => el.classList.remove('hidden'));
+            polDhcp.forEach(el => el.classList.add('hidden'));
+            polDai.forEach(el => el.classList.add('hidden'));
+        } else if (devType === 'Switch L2') {
             switchModeCols.forEach(el => el.classList.remove('hidden'));
             routerModeCols.forEach(el => el.classList.add('hidden'));
             label.textContent = "VLANs y Configuración de Interfaz Virtual SVI";
+            
+            polOspf.forEach(el => el.classList.add('hidden'));
+            polVpn.forEach(el => el.classList.add('hidden'));
+            polDhcp.forEach(el => el.classList.remove('hidden'));
+            polDai.forEach(el => el.classList.remove('hidden'));
+        } else { // Switch L3
+            switchModeCols.forEach(el => el.classList.remove('hidden'));
+            routerModeCols.forEach(el => el.classList.add('hidden'));
+            label.textContent = "VLANs y Configuración de Interfaz Virtual SVI";
+            
+            polOspf.forEach(el => el.classList.remove('hidden'));
+            polVpn.forEach(el => el.classList.remove('hidden'));
+            polDhcp.forEach(el => el.classList.remove('hidden'));
+            polDai.forEach(el => el.classList.remove('hidden'));
         }
+
+        document.querySelectorAll('#interfaces-table tbody tr').forEach(row => {
+            applyDeviceTypeToRow(row);
+        });
 
         const localNode = activeTopology.nodes.find(n => n.isLocal);
         if (localNode) {
             localNode.type = devType;
-            renderTopology();
+            if (document.getElementById('topology-tab').classList.contains('active')) renderTopology();
         }
         refreshAllInterfaceDropdowns();
     }
@@ -506,29 +556,51 @@
         row.querySelector('.r-sub-ip').disabled = !enabled;
     }
 
+    function handleTrunkModeChange(select) {
+        const specificInput = select.closest('.trunk-vlan-options').querySelector('.trunk-specific-vlans');
+        if (select.value === 'specific') {
+            specificInput.classList.remove('hidden');
+        } else {
+            specificInput.classList.add('hidden');
+            specificInput.value = '';
+        }
+    }
+
     function handleIfRoleChange(select) {
         const row = select.closest('tr');
         const ipInput = row.querySelector('.if-ip-field');
         const vlanSelect = row.querySelector('.if-vlan-field');
+        const trunkOpts = row.querySelector('.trunk-vlan-options');
+        const l2Sec = row.querySelector('.l2-security-col');
+        
+        if(ipInput) ipInput.classList.add('hidden');
+        if(vlanSelect) vlanSelect.classList.add('hidden');
+        if(trunkOpts) trunkOpts.classList.add('hidden');
+
         if (select.value === 'L3 Routed') {
-            ipInput.classList.remove('hidden');
-            vlanSelect.classList.add('hidden');
-        } else {
-            ipInput.classList.add('hidden');
-            vlanSelect.classList.remove('hidden');
+            if(ipInput) ipInput.classList.remove('hidden');
+            if(l2Sec) l2Sec.style.visibility = 'hidden';
+        } else if (select.value === 'Access') {
+            if(vlanSelect) vlanSelect.classList.remove('hidden');
+            if(l2Sec) l2Sec.style.visibility = 'visible';
+        } else if (select.value === 'Trunk') {
+            if(trunkOpts) trunkOpts.classList.remove('hidden');
+            if(l2Sec) l2Sec.style.visibility = 'visible';
         }
     }
 
     function getAllAvailablePorts() {
         let ports = [];
         const moduleRows = document.querySelectorAll('#hardware-modules-table tbody tr');
-        
         moduleRows.forEach((row, modIndex) => {
             const ifType = row.querySelector('.mod-type').value;
             const count = parseInt(row.querySelector('.mod-count').value) || 0;
             const format = row.querySelector('.mod-format').value;
+            
+            let startIdx = (ifType.toLowerCase() === 'fastethernet') ? 1 : 0;
+            let endIdx = startIdx + count - 1;
 
-            for (let i = 1; i <= count; i++) {
+            for (let i = startIdx; i <= endIdx; i++) {
                 let portName = "";
                 if (format === 'slot_0') portName = `${ifType}0/${i}`;
                 else if (format === 'slot_0_0') portName = `${ifType}0/0/${i}`;
@@ -536,38 +608,25 @@
                 ports.push(portName);
             }
         });
-
-        if (ports.length === 0) ports.push("GigabitEthernet0/1");
+        if (ports.length === 0) ports.push("GigabitEthernet0/0");
         return ports;
     }
 
     function refreshAllInterfaceDropdowns() {
         const availablePorts = getAllAvailablePorts();
-
-        document.querySelectorAll('.if-name').forEach(select => {
+        document.querySelectorAll('.if-name, .r-parent-if').forEach(select => {
             const currentVal = select.value;
             select.innerHTML = '';
             availablePorts.forEach(p => select.innerHTML += `<option value="${p}">${p}</option>`);
             if (currentVal && availablePorts.includes(currentVal)) select.value = currentVal;
         });
 
-        document.querySelectorAll('.r-parent-if').forEach(select => {
-            const currentVal = select.value;
-            select.innerHTML = '';
-            availablePorts.forEach(p => select.innerHTML += `<option value="${p}">${p}</option>`);
-            if (currentVal && availablePorts.includes(currentVal)) select.value = currentVal;
-        });
-
-        // Actualizar el nodo principal (isLocal) en la topología
         let localNode = activeTopology.nodes.find(n => n.isLocal);
         if (localNode) {
             localNode.portsList = availablePorts;
             localNode.maxPorts = availablePorts.length;
         }
-        
-        if (document.getElementById('topology-tab').classList.contains('active')) {
-            renderTopology();
-        }
+        if (document.getElementById('topology-tab').classList.contains('active')) renderTopology();
     }
 
     function addHardwareModuleRow() {
@@ -612,10 +671,9 @@
             const name = row.querySelector('.v-name').value;
             if (id) vlans.push({ id, name });
         });
-
         document.querySelectorAll('.if-vlan-field').forEach(select => {
             const curVal = select.value;
-            select.innerHTML = '<option value="">Permitir Todas / Default</option>';
+            select.innerHTML = '<option value="1">VLAN 1 - Default</option>';
             vlans.forEach(v => select.innerHTML += `<option value="${v.id}">VLAN ${v.id} - ${v.name}</option>`);
             if (curVal) select.value = curVal;
         });
@@ -664,10 +722,17 @@
                 </select>
             </td>
             <td>
-                <input type="text" value="10.240.1.2/30" class="if-ip-field">
+                <input type="text" value="10.240.1.2/30" class="if-ip-field hidden">
                 <select class="if-vlan-field hidden"></select>
+                <div class="trunk-vlan-options hidden" style="display:flex; flex-direction:column; gap:5px;">
+                    <select class="trunk-mode-sel" onchange="handleTrunkModeChange(this)">
+                        <option value="all">Permitir Todas</option>
+                        <option value="specific">VLANs Específicas</option>
+                    </select>
+                    <input type="text" class="trunk-specific-vlans hidden" placeholder="Ej: 10,20,30">
+                </div>
             </td>
-            <td>
+            <td class="l2-security-col">
                 <div class="checkbox-group" style="grid-template-columns:1fr 1fr;">
                     <label style="font-size:0.75rem;"><input type="checkbox" class="if-pf"> PortFast</label>
                     <label style="font-size:0.75rem;"><input type="checkbox" class="if-bpdu"> BPDUGuard</label>
@@ -676,52 +741,41 @@
             <td><button type="button" class="btn-danger" onclick="removeRow(this)">X</button></td>
         `;
         tbody.appendChild(row);
+        applyDeviceTypeToRow(row);
         refreshVlanDropdowns();
     }
 
     function removeVlanRow(btn) { btn.closest('tr').remove(); refreshVlanDropdowns(); }
     function removeRow(btn) { btn.closest('tr').remove(); }
+    
+    function generateDefaultPorts(count) {
+        let p = [];
+        for(let i=0; i<Math.min(count, 2); i++) p.push(`GigabitEthernet0/${i}`);
+        for(let i=1; i<=Math.max(0, count-2); i++) p.push(`FastEthernet0/${i}`);
+        return p;
+    }
 
-    // GESTIÓN DE TOPOLOGÍA E INTERCONEXIONES FÍSICAS (CORREGIDO)
     function openAddDeviceModal() { document.getElementById('device-modal').classList.remove('hidden'); }
     function closeAddDeviceModal() { document.getElementById('device-modal').classList.add('hidden'); }
-
+    
     function confirmAddDevice() {
         const name = document.getElementById('modal-dev-name').value.trim();
         const type = document.getElementById('modal-dev-type').value;
         const maxPorts = parseInt(document.getElementById('modal-dev-ports').value) || 24;
-
         if (!name) return;
-
-        const id = "DEV-" + Date.now(); // Unique ID
+        const id = "DEV-" + Date.now(); 
         let portsList = generateDefaultPorts(maxPorts);
-
-        activeTopology.nodes.push({ 
-            id, 
-            name, 
-            type, 
-            maxPorts, 
-            portsList,
-            x: 100 + (activeTopology.nodes.length * 150) % 700, 
-            y: 150 + (activeTopology.nodes.length % 2) * 100 
-        });
+        activeTopology.nodes.push({ id, name, type, maxPorts, portsList, x: 100 + (activeTopology.nodes.length * 150) % 700, y: 150 + (activeTopology.nodes.length % 2) * 100 });
         closeAddDeviceModal();
         renderTopology();
     }
-
     function removeDevice(nodeId) {
         const node = activeTopology.nodes.find(n => n.id === nodeId);
-        if(node && node.isLocal) {
-            alert("No puede eliminar el dispositivo base (Equipo Local) de la topología.");
-            return;
-        }
-        // Eliminar enlaces asociados
+        if(node && node.isLocal) { alert("No puede eliminar el dispositivo base (Equipo Local) de la topología."); return; }
         activeTopology.links = activeTopology.links.filter(l => l.source !== nodeId && l.target !== nodeId);
-        // Eliminar nodo
         activeTopology.nodes = activeTopology.nodes.filter(n => n.id !== nodeId);
         renderTopology();
     }
-
     function getUsedPorts(nodeId) {
         let ports = [];
         activeTopology.links.forEach(l => {
@@ -730,81 +784,53 @@
         });
         return ports;
     }
-
     function updateTopoPortSelectors() {
         const srcNodeId = document.getElementById('link-src-node').value;
         const dstNodeId = document.getElementById('link-dst-node').value;
-
         const srcNode = activeTopology.nodes.find(n => n.id === srcNodeId);
         const dstNode = activeTopology.nodes.find(n => n.id === dstNodeId);
-
         const srcPortSel = document.getElementById('link-src-port');
         const dstPortSel = document.getElementById('link-dst-port');
-
-        srcPortSel.innerHTML = '';
-        dstPortSel.innerHTML = '';
-
+        srcPortSel.innerHTML = ''; dstPortSel.innerHTML = '';
         if (srcNode) {
             const used = getUsedPorts(srcNode.id);
             let pList = srcNode.portsList || generateDefaultPorts(srcNode.maxPorts);
-            pList.forEach(pname => {
-                if (!used.includes(pname)) {
-                    srcPortSel.innerHTML += `<option value="${pname}">${pname}</option>`;
-                }
-            });
+            pList.forEach(pname => { if (!used.includes(pname)) srcPortSel.innerHTML += `<option value="${pname}">${pname}</option>`; });
         }
-
         if (dstNode) {
             const used = getUsedPorts(dstNode.id);
             let pList = dstNode.portsList || generateDefaultPorts(dstNode.maxPorts);
-            pList.forEach(pname => {
-                if (!used.includes(pname)) {
-                    dstPortSel.innerHTML += `<option value="${pname}">${pname}</option>`;
-                }
-            });
+            pList.forEach(pname => { if (!used.includes(pname)) dstPortSel.innerHTML += `<option value="${pname}">${pname}</option>`; });
         }
     }
-
     function createDeviceLink() {
         const srcNodeId = document.getElementById('link-src-node').value;
         const dstNodeId = document.getElementById('link-dst-node').value;
         const srcPort = document.getElementById('link-src-port').value;
         const dstPort = document.getElementById('link-dst-port').value;
-
         if (!srcNodeId || !dstNodeId) { alert("Debe tener al menos dos dispositivos en la topología."); return; }
         if (srcNodeId === dstNodeId) { alert("No puede agregar una conexión de un equipo hacia sí mismo."); return; }
         if (!srcPort || !dstPort) { alert("Uno de los dispositivos no tiene puertos libres suficientes."); return; }
-
-        activeTopology.links.push({
-            id: "LINK-" + Date.now(),
-            source: srcNodeId, srcPort: srcPort,
-            target: dstNodeId, dstPort: dstPort
-        });
-
+        activeTopology.links.push({ id: "LINK-" + Date.now(), source: srcNodeId, srcPort: srcPort, target: dstNodeId, dstPort: dstPort });
         renderTopology();
     }
-
     function removeLink(linkId) {
         activeTopology.links = activeTopology.links.filter(l => l.id !== linkId);
         renderTopology();
     }
-
     function renderTopology() {
         renderSVG();
         updateNodeSelectors();
         updateSummaryTables();
     }
-
     function renderSVG() {
         const svg = document.getElementById('topo-svg');
         if(!svg) return;
         svg.innerHTML = '';
-
         if (activeTopology.nodes.length === 0) {
             svg.innerHTML = '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8">Agregue dispositivos o cargue un JSON para visualizar el diagrama</text>';
             return;
         }
-
         activeTopology.links.forEach(link => {
             const src = activeTopology.nodes.find(n => n.id === link.source);
             const dst = activeTopology.nodes.find(n => n.id === link.target);
@@ -814,7 +840,6 @@
                 line.setAttribute("x2", dst.x); line.setAttribute("y2", dst.y);
                 line.setAttribute("stroke", "#38bdf8"); line.setAttribute("stroke-width", "2.5");
                 svg.appendChild(line);
-
                 const midX = (src.x + dst.x) / 2;
                 const midY = (src.y + dst.y) / 2 - 8;
                 const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -825,7 +850,6 @@
                 svg.appendChild(text);
             }
         });
-
         activeTopology.nodes.forEach(node => {
             const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             circle.setAttribute("cx", node.x); circle.setAttribute("cy", node.y); circle.setAttribute("r", "22");
@@ -833,7 +857,6 @@
             circle.setAttribute("stroke", node.isLocal ? "#facc15" : "#f8fafc"); 
             circle.setAttribute("stroke-width", node.isLocal ? "3" : "1.5");
             svg.appendChild(circle);
-
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", node.x); text.setAttribute("y", node.y + 38);
             text.setAttribute("fill", "#f8fafc"); text.setAttribute("font-size", "11");
@@ -843,32 +866,19 @@
             svg.appendChild(text);
         });
     }
-
     function updateNodeSelectors() {
         const srcSel = document.getElementById('link-src-node');
         const dstSel = document.getElementById('link-dst-node');
         if(!srcSel || !dstSel) return;
-
-        const curSrc = srcSel.value;
-        const curDst = dstSel.value;
-
+        const curSrc = srcSel.value; const curDst = dstSel.value;
         srcSel.innerHTML = ''; dstSel.innerHTML = '';
-
         activeTopology.nodes.forEach(n => {
-            const isSelectedSrc = (n.id === curSrc) ? 'selected' : '';
-            const isSelectedDst = (n.id === curDst) ? 'selected' : '';
-            srcSel.innerHTML += `<option value="${n.id}" ${isSelectedSrc}>${n.name} (${n.type})</option>`;
-            dstSel.innerHTML += `<option value="${n.id}" ${isSelectedDst}>${n.name} (${n.type})</option>`;
+            srcSel.innerHTML += `<option value="${n.id}" ${(n.id === curSrc) ? 'selected' : ''}>${n.name} (${n.type})</option>`;
+            dstSel.innerHTML += `<option value="${n.id}" ${(n.id === curDst) ? 'selected' : ''}>${n.name} (${n.type})</option>`;
         });
-
-        // Asegurar que destino no sea el mismo que origen si hay más de 1 nodo
-        if(activeTopology.nodes.length > 1 && srcSel.value === dstSel.value) {
-            dstSel.selectedIndex = 1;
-        }
-
+        if(activeTopology.nodes.length > 1 && srcSel.value === dstSel.value) dstSel.selectedIndex = 1;
         updateTopoPortSelectors();
     }
-
     function updateSummaryTables() {
         const nTbody = document.querySelectorAll('#nodes-summary-table tbody')[0];
         if(nTbody) {
@@ -877,7 +887,6 @@
                 const usedCount = getUsedPorts(node.id).length;
                 let totalCap = node.portsList ? node.portsList.length : node.maxPorts;
                 const delBtn = node.isLocal ? `<span style="color:#94a3b8; font-size:0.8rem;">(Equipo Base)</span>` : `<button type="button" class="btn-danger" style="padding:4px 8px;" onclick="removeDevice('${node.id}')">X Eliminar</button>`;
-                
                 nTbody.innerHTML += `
                     <tr>
                         <td><strong>${node.name}</strong></td>
@@ -890,15 +899,10 @@
                 `;
             });
         }
-
         const lTbody = document.querySelectorAll('#links-summary-table tbody')[0];
         if(lTbody) {
             lTbody.innerHTML = '';
-            if (activeTopology.links.length === 0) {
-                lTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Sin enlaces activos.</td></tr>';
-                return;
-            }
-
+            if (activeTopology.links.length === 0) { lTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Sin enlaces activos.</td></tr>'; return; }
             activeTopology.links.forEach(l => {
                 const src = activeTopology.nodes.find(n => n.id === l.source);
                 const dst = activeTopology.nodes.find(n => n.id === l.target);
@@ -912,7 +916,6 @@
             });
         }
     }
-
     function loadTopologyFromFile(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -920,7 +923,6 @@
         reader.onload = function(e) {
             try {
                 activeTopology = JSON.parse(e.target.result);
-                // Validar estructura
                 if(!activeTopology.nodes || !activeTopology.links) throw new Error("JSON Inválido");
                 renderTopology();
                 alert('Topología cargada con éxito.');
@@ -928,19 +930,12 @@
         };
         reader.readAsText(file);
     }
-
     function exportTopologyJSON() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeTopology, null, 2));
-        const link = document.createElement('a');
-        link.setAttribute("href", dataStr);
-        link.setAttribute("download", "wan_topology_config.json");
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        const link = document.createElement('a'); link.setAttribute("href", dataStr); link.setAttribute("download", "wan_topology_config.json");
+        document.body.appendChild(link); link.click(); link.remove();
     }
-
     function clearTopology() { 
-        // Solo conservamos el nodo local
         const localNode = activeTopology.nodes.find(n => n.isLocal);
         activeTopology = { nodes: localNode ? [localNode] : [], links: [] }; 
         renderTopology(); 
@@ -963,22 +958,31 @@
         const interfaces = [];
         document.querySelectorAll('#interfaces-table tbody tr').forEach(row => {
             const role = row.querySelector('.if-mode').value;
+            let assigned = "";
+            if (role === 'Access') {
+                assigned = row.querySelector('.if-vlan-field').value;
+            } else if (role === 'Trunk') {
+                const tMode = row.querySelector('.trunk-mode-sel').value;
+                if (tMode === 'all') {
+                    assigned = "all";
+                } else {
+                    assigned = row.querySelector('.trunk-specific-vlans').value;
+                }
+            }
+            
             interfaces.push({
                 port_name: row.querySelector('.if-name').value,
                 role: role,
                 ip_cidr: role === 'L3 Routed' ? row.querySelector('.if-ip-field').value : "",
-                assigned_vlan: role !== 'L3 Routed' ? row.querySelector('.if-vlan-field').value : "",
+                assigned_vlan: assigned,
                 portfast: row.querySelector('.if-pf').checked,
                 bpdu_guard: row.querySelector('.if-bpdu').checked
             });
         });
 
         let totalPorts = 0;
-        document.querySelectorAll('#hardware-modules-table tbody tr').forEach(row => {
-            totalPorts += parseInt(row.querySelector('.mod-count').value) || 0;
-        });
+        document.querySelectorAll('#hardware-modules-table tbody tr').forEach(row => { totalPorts += parseInt(row.querySelector('.mod-count').value) || 0; });
 
-        // Recolección de los parámetros de configuración y topología
         const payload = {
             hostname: document.getElementById('hostname').value,
             mgmt_ip: document.getElementById('mgmt_ip').value,
@@ -989,56 +993,45 @@
             base_ip_cidr: document.getElementById('base_ip_cidr').value,
             interfaces: interfaces,
             vlans: vlans,
+            
             enable_vpn: document.getElementById('enable_vpn') ? document.getElementById('enable_vpn').checked : false,
+            enable_dhcp_snooping: document.getElementById('chk_dhcp') ? document.getElementById('chk_dhcp').checked : false,
+            enable_dai: document.getElementById('chk_dai') ? document.getElementById('chk_dai').checked : false,
+            disable_discovery: document.getElementById('chk_cdp') ? document.getElementById('chk_cdp').checked : false,
+            
+            ospf: (document.getElementById('chk_ospf') && document.getElementById('chk_ospf').checked) ? {
+                enabled: true, process_id: 1, area: "0.0.0.0", router_id: document.getElementById('mgmt_ip').value
+            } : null,
             topology: activeTopology
         };
 
-        // Mensaje de estado mientras carga
         document.getElementById('cli-output').textContent = "Solicitando generación al API...";
         document.getElementById('btn-copy').disabled = true;
         document.getElementById('btn-download').disabled = true;
 
         try {
             const response = await fetch('http://localhost:8000/api/generate-config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
-
             if (!response.ok) {
-                const err = await response.json();
-                alert('Error: ' + err.detail);
+                const err = await response.json(); alert('Error: ' + err.detail);
                 document.getElementById('cli-output').textContent = "! Error al conectar con el backend: " + err.detail;
                 return;
             }
-
             const data = await response.json();
 
             const ipTbody = document.querySelectorAll('#output-ip-table tbody')[0];
             if (ipTbody && data.ip_planning) {
                 ipTbody.innerHTML = '';
                 data.ip_planning.forEach(item => {
-                    ipTbody.innerHTML += `
-                        <tr>
-                            <td><strong>${item.vlan_id}</strong></td>
-                            <td>${item.vlan_name}</td>
-                            <td>${item.network_ip_cidr}</td>
-                            <td>${item.netmask}</td>
-                            <td>${item.wildcard}</td>
-                            <td>${item.gateway}</td>
-                            <td>${item.dhcp_range}</td>
-                            <td>${item.broadcast}</td>
-                        </tr>
-                    `;
+                    ipTbody.innerHTML += `<tr><td><strong>${item.vlan_id}</strong></td><td>${item.vlan_name}</td><td>${item.network_ip_cidr}</td><td>${item.netmask}</td><td>${item.wildcard}</td><td>${item.gateway}</td><td>${item.dhcp_range}</td><td>${item.broadcast}</td></tr>`;
                 });
             }
 
             const bomContainer = document.getElementById('bom-output');
             if (bomContainer && data.bill_of_materials) {
                 let bomHtml = '<ul>';
-                data.bill_of_materials.items.forEach(i => {
-                    bomHtml += `<li>${i.description}: <strong>$${i.cost_usd.toFixed(2)} USD</strong></li>`;
-                });
+                data.bill_of_materials.items.forEach(i => { bomHtml += `<li>${i.description}: <strong>$${i.cost_usd.toFixed(2)} USD</strong></li>`; });
                 bomHtml += `</ul><div style="border-top:1px solid var(--border); padding-top:5px; margin-top:5px;"><strong>TOTAL ESTIMADO: $${data.bill_of_materials.total_estimated_usd.toFixed(2)} USD</strong></div>`;
                 bomContainer.innerHTML = bomHtml;
             }
@@ -1048,7 +1041,6 @@
                 document.getElementById('btn-copy').disabled = false;
                 document.getElementById('btn-download').disabled = false;
             }
-
         } catch (error) {
             document.getElementById('cli-output').textContent = "! Error al conectar con el backend: " + error.message;
             console.error("API Fetch Error:", error);
@@ -1060,11 +1052,10 @@
         const hostname = document.getElementById('hostname').value || 'config';
         const vendor = document.getElementById('vendor').value;
         const blob = new Blob([cliText], { type: 'text/plain;charset=utf-8' });
-        const link = document.createElement('a');
-        link.download = `${hostname}_${vendor}_config.txt`;
-        link.href = URL.createObjectURL(blob);
-        link.click();
+        const link = document.createElement('a'); link.download = `${hostname}_${vendor}_config.txt`;
+        link.href = URL.createObjectURL(blob); link.click();
     }
 </script>
 </body>
-</html
+</html>
+
